@@ -1,5 +1,6 @@
 import uuid
-from typing import Dict, List, Optional, cast, Set
+import asyncio  # NEW: for delayed room cleanup scheduling
+from typing import Dict, List, Optional, cast, Set, Tuple
 
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect, HTTPException, Header, status, Depends, Query, Body
 from fastapi.middleware.cors import CORSMiddleware
@@ -79,7 +80,8 @@ class RoomState(BaseModel):
 rooms: Dict[str, "Room"] = {}
 
 # ---- Global lobby websocket connections ---- #
-lobby_connections: Set[WebSocket] = set()
+# Map WebSocket -> optional user_id (None if unauthenticated)
+lobby_connections: Dict[WebSocket, Optional[str]] = {}
 
 
 # ---- Helper objects ---- #
@@ -111,6 +113,12 @@ class Room:
         self.stats_recorded: bool = False
         # Optional lobby password (plain-text for now; could be hashed in future)
         self.password: Optional[str] = password
+
+        # Track temporarily disconnected players (only relevant once game has started)
+        self.disconnected_players: Set[str] = set()
+
+        # Task created when the room becomes empty; used to prune after a delay
+        self.cleanup_task: Optional[asyncio.Task] = None  # NEW
 
     # helper to check password validity
     def check_password(self, password_attempt: Optional[str]) -> bool:
@@ -362,6 +370,8 @@ class LobbySummary(BaseModel):
     host_name: str
     player_count: int
     requires_password: bool
+    member: bool = False
+    phase: str = "lobby"
 
 
 # Helper to build lobby summaries (same data shape as /rooms endpoint)
@@ -378,6 +388,8 @@ def _collect_lobby_summaries() -> List[LobbySummary]:
                 host_name=host_player.name if host_player else "Unknown",
                 player_count=len(room.players),
                 requires_password=room.password is not None,
+                member=False,
+                phase="lobby",
             )
         )
     return summaries
@@ -387,37 +399,61 @@ async def broadcast_lobbies():
     """Push the current lobby list to all listeners."""
     if not lobby_connections:
         return
-    payload = {
-        "type": "lobbies",
-        "data": [s.model_dump() for s in _collect_lobby_summaries()],
-    }
-    for ws in list(lobby_connections):
+
+    # Build personalised payloads per connection (so each user sees their own in-progress games)
+    for ws, uid in list(lobby_connections.items()):
         try:
-            await ws.send_json(payload)
+            data: List[LobbySummary] = []
+            for rid, room in rooms.items():
+                is_member = uid in room.players if uid else False
+                if room.phase == "lobby" or is_member:
+                    host_player = room.players.get(room.host_id)
+                    data.append(
+                        LobbySummary(
+                            room_id=rid,
+                            host_id=room.host_id,
+                            host_name=host_player.name if host_player else "Unknown",
+                            player_count=len(room.players),
+                            requires_password=room.password is not None,
+                            member=is_member,
+                            phase=room.phase,
+                        )
+                    )
+            await ws.send_json({"type": "lobbies", "data": [s.model_dump() for s in data]})
         except Exception:
-            # Safely remove dead connections
-            lobby_connections.discard(ws)
+            lobby_connections.pop(ws, None)
 
 
-# ---- Lobby WebSocket endpoint ---- #
 @app.websocket("/lobbies_ws")
-async def lobbies_ws_endpoint(ws: WebSocket):
-    """WebSocket that streams lobby list updates in real-time."""
+async def lobbies_ws_endpoint(ws: WebSocket, auth: Optional[str] = Query(default=None)):
+    """WebSocket that streams lobby list updates in real-time.
+    Optionally accepts ?auth=<base64(username:password)> to personalise results."""
     await ws.accept()
-    lobby_connections.add(ws)
-    # Send initial snapshot
-    await ws.send_json({
-        "type": "lobbies",
-        "data": [s.model_dump() for s in _collect_lobby_summaries()],
-    })
+
+    user_id: Optional[str] = None
+    if auth:
+        try:
+            decoded = base64.b64decode(auth).decode()
+            username, password = decoded.split(":", 1)
+            user = await User.filter(username=username).first()
+            if user and verify_password(password, user.password_hash):
+                user_id = str(user.id)
+        except Exception:
+            user_id = None
+
+    lobby_connections[ws] = user_id
+
+    # Send initial personalised snapshot
+    await broadcast_lobbies()
+
     try:
         while True:
             # We don't expect messages from the client; just keep connection alive.
             await ws.receive_text()
     except WebSocketDisconnect:
-        lobby_connections.discard(ws)
+        lobby_connections.pop(ws, None)
     except Exception:
-        lobby_connections.discard(ws)
+        lobby_connections.pop(ws, None)
 
 
 @app.post("/rooms", response_model=RoomResponse)
@@ -514,8 +550,24 @@ async def websocket_endpoint(ws: WebSocket, room_id: str, auth: Optional[str] = 
 
     room.connections[user_id] = ws
 
+    # Handle reconnection – if previously marked disconnected, remove and notify others
+    if user_id in room.disconnected_players:
+        room.disconnected_players.discard(user_id)
+        await room.broadcast({
+            "type": "pause",
+            "players": [room.players[pid].name for pid in room.disconnected_players],
+        })
+
     # Send initial state
     await room.broadcast_state()
+
+    # Send role-specific info (covers reconnect scenarios)
+    await send_private_info(room, user_id)
+
+    # --- If a cleanup task was scheduled because the room became empty, cancel it on reconnect --- #
+    if getattr(room, "cleanup_task", None) and not room.cleanup_task.done():
+        room.cleanup_task.cancel()
+        room.cleanup_task = None
 
     try:
         while True:
@@ -526,12 +578,38 @@ async def websocket_endpoint(ws: WebSocket, room_id: str, auth: Optional[str] = 
         player = room.players.get(user_id)
         if player is not None and room.phase == "lobby":
             player.ready = False
+
+        # Mark as disconnected during active game and broadcast pause info
+        if room.phase != "lobby":
+            room.disconnected_players.add(user_id)
+            await room.broadcast({
+                "type": "pause",
+                "players": [room.players[pid].name for pid in room.disconnected_players],
+            })
+
         await room.broadcast_state()
         # --- Auto-delete empty lobbies (no active websocket connections) ---
-        if room.phase == "lobby" and not room.connections:
-            rooms.pop(room.room_id, None)
-            await broadcast_lobbies()
-            return
+        if not room.connections:
+            # Existing behaviour: immediately remove empty lobbies
+            if room.phase == "lobby":
+                rooms.pop(room.room_id, None)
+                await broadcast_lobbies()
+                return
+
+            # For in-game (or finished) rooms, schedule a delayed cleanup to allow brief reconnections
+            if room.cleanup_task is None or room.cleanup_task.done():
+                async def _prune_after_delay(rid: str, delay: int = 300):
+                    try:
+                        await asyncio.sleep(delay)
+                        room_ref = rooms.get(rid)
+                        if room_ref and not room_ref.connections:
+                            rooms.pop(rid, None)
+                            await broadcast_lobbies()
+                    except asyncio.CancelledError:
+                        # Cleanup was cancelled due to player reconnection
+                        pass
+
+                room.cleanup_task = asyncio.create_task(_prune_after_delay(room.room_id))
     except Exception as e:
         print("WebSocket error", e)
         room.connections.pop(user_id, None)
@@ -643,6 +721,34 @@ async def distribute_initial_info(room: Room):
         ws = room.connections.get(pid)
         if ws:
             await ws.send_json({"type": "info", "percival_knows": merlin_like_names})
+
+
+# ---- Reconnection private info helper ---- #
+async def send_private_info(room: Room, user_id: str):
+    """Send role-specific private information to a single player (used on reconnect)."""
+    player = room.players.get(user_id)
+    if not player or player.role is None:
+        return  # nothing to send yet
+
+    ws = room.connections.get(user_id)
+    if ws is None:
+        return
+
+    evil_players = [p for p in room.players.values() if p.role in {"Assassin", "Mordred", "Morgana", "Minion of Mordred"}]
+    evil_names = [p.name for p in evil_players]
+
+    payload: Dict[str, List[str]] = {}
+
+    if player.role == "Merlin":
+        payload["merlin_knows"] = evil_names
+    if player.role == "Percival":
+        merlin_like_names = [p.name for p in room.players.values() if p.role in {"Merlin", "Morgana"}]
+        payload["percival_knows"] = merlin_like_names
+    if player.role in {"Assassin", "Mordred", "Morgana", "Minion of Mordred"}:
+        payload["evil"] = evil_names
+
+    if payload:
+        await ws.send_json({"type": "info", **payload})
 
 
 # ---- Role Logic ---- #
@@ -976,23 +1082,49 @@ register_tortoise(
 
 # ---- Lobby listing ---- #
 
+from typing import Optional as _Optional
+
+
+# Helper dependency that returns the authenticated user if Authorization header with valid
+# Basic credentials is supplied; otherwise returns None without raising.
+async def _optional_user(authorization: _Optional[str] = Header(default=None)) -> _Optional[User]:
+    if not authorization or not authorization.lower().startswith("basic "):
+        return None
+    try:
+        token = authorization.split(" ", 1)[1]
+        decoded = base64.b64decode(token).decode()
+        username, password = decoded.split(":", 1)
+    except Exception:
+        return None
+
+    user = await User.filter(username=username).first()
+    if not user or not verify_password(password, user.password_hash):
+        return None
+    return user
+
+
 @app.get("/rooms", response_model=List[LobbySummary])
-async def list_rooms():
-    """Return a list of all active lobbies (phase == 'lobby')."""
+async def list_rooms(current_user: _Optional[User] = Depends(_optional_user)):
+    """Return lobbies plus any in-progress rooms the requester is already part of."""
+    requester_id = str(current_user.id) if current_user else None
     result: List[LobbySummary] = []
+
     for rid, room in rooms.items():
-        if room.phase != "lobby":
-            continue
-        host_player = room.players.get(room.host_id)
-        result.append(
-            LobbySummary(
-                room_id=rid,
-                host_id=room.host_id,
-                host_name=host_player.name if host_player else "Unknown",
-                player_count=len(room.players),
-                requires_password=room.password is not None,
+        is_member = requester_id in room.players if requester_id else False
+        # include lobby rooms for everyone, or in-progress rooms only for members
+        if room.phase == "lobby" or is_member:
+            host_player = room.players.get(room.host_id)
+            result.append(
+                LobbySummary(
+                    room_id=rid,
+                    host_id=room.host_id,
+                    host_name=host_player.name if host_player else "Unknown",
+                    player_count=len(room.players),
+                    requires_password=room.password is not None,
+                    member=is_member,
+                    phase=room.phase,
+                )
             )
-        )
     return result
 
 # ---- Mount frontend last ---- #
