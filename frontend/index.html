@@ -43,12 +43,6 @@
       box-sizing: border-box;
     }
 
-    /* NEW: Background sliding animation */
-    @keyframes endless-scroll {
-      from { background-position: 0 0; }
-      to { background-position: -120px 0; } /* Animate by one tile width for seamless loop */
-    }
-
     body {
       font-family: 'EB Garamond', serif;
       margin: 0;
@@ -58,12 +52,17 @@
       flex-direction: column;
       align-items: center;
       min-height: 100vh;
-      background-color: var(--color-bg-dark);
-      /* NEW: Seamless, tiling SVG brick background */
-      background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' width='120' height='60' viewBox='0 0 120 60'%3e%3crect width='120' height='60' fill='%233a3226'/%3e%3crect x='0' y='0' width='58' height='28' fill='%235a4b3a'/%3e%3crect x='62' y='0' width='58' height='28' fill='%235a4b3a'/%3e%3crect x='-30' y='32' width='58' height='28' fill='%235a4b3a'/%3e%3crect x='32' y='32' width='58' height='28' fill='%235a4b3a'/%3e%3crect x='94' y='32' width='58' height='28' fill='%235a4b3a'/%3e%3c/svg%3e");
-      background-size: 120px 60px;
-      /* NEW: Updated animation property */
-      animation: endless-scroll 10s linear infinite;
+      
+      /* UPDATED: Background using brick.png */
+      background-color: var(--color-bg-dark); /* Fallback color */
+      background-image: url('./images/brick.png');
+      background-size: cover; /* Crop to fill the screen */
+      background-position: center center;
+      background-repeat: no-repeat;
+      background-attachment: fixed; /* Keep background fixed on scroll */
+
+      /* Text shadow for better readability on textured background */
+      text-shadow: 1px 1px 4px rgba(0,0,0,0.6);
     }
 
     header { text-align: center; margin-bottom: 2rem; }
@@ -72,13 +71,15 @@
       font-family: 'Cinzel', serif;
       margin-top: 0;
       font-weight: 600;
+      /* Remove individual text-shadows to use the body's global one */
     }
 
     h1 {
       font-size: 3rem;
       font-weight: 700;
       color: var(--color-text-primary);
-      text-shadow: 0 0 15px rgba(212, 175, 55, 0.3), 0 0 5px rgba(240, 220, 180, 0.2), 0 2px 2px rgba(0,0,0,0.4);
+      /* NEW: Stronger text-shadow to stand out */
+      text-shadow: 0 0 15px rgba(212, 175, 55, 0.4), 0 2px 3px rgba(0,0,0,0.7);
     }
 
     h2 {
@@ -238,6 +239,28 @@
     .status-dot { width: 10px; height: 10px; border-radius: 50%; box-shadow: 0 0 8px 1px; }
     .status-dot.ready { background: var(--color-accent-success); }
     .status-dot.not-ready { background: var(--color-accent-danger); }
+
+    /* NEW: QR Code Styling */
+    .qr-code-wrapper {
+      background: var(--color-bg-dark);
+      border-radius: var(--border-radius);
+      padding: 1rem 0.5rem;
+      margin: 1rem auto;
+      max-width: 250px;
+      text-align: center;
+      border: 1px solid var(--color-border);
+    }
+    .qr-code-wrapper p {
+        margin: 0 0 0.5rem;
+        font-size: 0.9rem;
+        color: var(--color-text-secondary);
+        font-family: 'Cinzel', serif;
+    }
+    #qrContainer {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+    }
 
     /* Config */
     .config-options-container { margin-top: 2rem; padding-top: 1.5rem; border-top: 1px solid var(--color-border); }
@@ -435,13 +458,54 @@
     .player-selection-form input:checked+.player-option { background: var(--color-accent-primary); border-color: var(--color-accent-primary-hover); color: var(--color-text-dark); box-shadow: var(--glow-primary); transform: translateY(-2px); }
     .player-selection-form input:disabled+.player-option { opacity: 0.5; cursor: not-allowed; background: var(--color-bg-dark); border-color: var(--color-border); color: var(--color-text-secondary); transform: none; box-shadow: none; }
 
-    .auth-form .btn { display: block; width: 100%; margin-top: 0.5rem; }
+    .auth-form .btn { margin-top: 0.5rem; }
 
     /* Navbar & Wins Badge */
     #navbar { display: flex; justify-content: space-between; align-items: center; width: 100%; max-width: 800px; margin: 0 auto 1.5rem; }
-    .nav-brand { font-size: 1.6rem; font-weight: 700; color: var(--color-accent-primary); cursor: pointer; font-family: 'Cinzel', serif; }
-    .nav-links a { margin-left: 1.5rem; cursor: pointer; color: var(--color-text-primary); font-weight: 600; text-decoration: none; transition: color var(--transition-speed) ease; font-size: 1.1rem;}
-    .nav-links a:hover { color: var(--color-accent-primary); text-shadow: var(--glow-primary); }
+    .nav-brand {
+      font-size: 1.6rem;
+      font-weight: 700;
+      color: var(--color-accent-primary);
+      cursor: pointer;
+      font-family: 'Cinzel', serif;
+      padding: 0.5rem 1rem;
+      border-radius: var(--border-radius);
+      background: rgba(0, 0, 0, 0.624);
+      border: 1px solid transparent;
+      transition: all var(--transition-speed) ease;
+    }
+    .nav-brand:hover {
+      color: var(--color-text-dark);
+      background: var(--color-accent-primary);
+      border-color: var(--color-accent-primary-hover);
+      text-shadow: 1px 1px 1px rgba(255, 255, 255, 0.2);
+    }
+    
+    /* MODIFIED: Navbar Links Styling */
+    .nav-links { 
+      display: flex; 
+      align-items: center;
+      gap: 0.5rem;
+    }
+    .nav-links a { 
+      cursor: pointer; 
+      color: var(--color-text-primary); 
+      font-weight: 600; 
+      text-decoration: none; 
+      font-size: 1.1rem;
+      padding: 0.5rem 1rem;
+      border-radius: var(--border-radius);
+      background: rgba(0, 0, 0, 0.624);
+      border: 1px solid transparent;
+      transition: all var(--transition-speed) ease;
+    }
+    .nav-links a:hover { 
+      color: var(--color-text-dark);
+      background: var(--color-accent-primary); 
+      border-color: var(--color-accent-primary-hover);
+      text-shadow: 1px 1px 1px rgba(255, 255, 255, 0.2);
+    }
+    .nav-links a.hidden { display: none; } /* Kept original hidden rule */
 
     .wins-badge {
       color: #f1c40f;
@@ -486,6 +550,122 @@
     }
 
     #roomIdDisplay.populated { width: auto; opacity: 1; padding: 0.3rem 0.8rem; }
+    
+    /* NEW: Media Queries for Responsiveness */
+    @media (max-width: 768px) {
+      body {
+        padding: 0.5rem;
+        font-size: 15px; /* Slightly reduce base font for better fit */
+      }
+
+      h1 {
+        font-size: 2.5rem;
+      }
+
+      h2 {
+        font-size: 1.8rem;
+      }
+      
+      main {
+        padding: 0; /* Main padding is now on body */
+      }
+
+      /* Navbar */
+      #navbar {
+        flex-direction: column;
+        gap: 1rem;
+        margin-bottom: 1rem;
+      }
+
+      .nav-links {
+        flex-wrap: wrap;
+        justify-content: center;
+      }
+      
+      .nav-links a {
+        margin-left: 0;
+      }
+
+      /* Cards */
+      .card {
+        padding: 1.5rem 1rem; /* Reduce horizontal padding */
+      }
+
+      /* Buttons */
+      .btn.lg {
+        padding: 0.8rem 1.6rem;
+        font-size: 1rem;
+      }
+      
+      .header-row {
+        flex-direction: column;
+        align-items: flex-start;
+      }
+      
+      #roomIdDisplay.populated {
+        padding: 0.2rem 0.6rem;
+        font-size: 1rem;
+      }
+
+      /* Scoreboard */
+      .scoreboard {
+        padding: 1rem;
+      }
+
+      .score-value {
+        font-size: 2.2rem;
+      }
+      
+      /* Modals */
+      .modal-content {
+        width: 95%;
+        padding: 1.5rem 1rem;
+      }
+
+      /* Toasts */
+      #toastContainer {
+        right: 10px;
+        left: 10px;
+        bottom: 10px;
+        align-items: center;
+      }
+      
+      .toast {
+         width: 100%;
+         max-width: 450px;
+         text-align: center;
+      }
+
+      /* Lobby Specific */
+      .player-list li {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 0.75rem;
+      }
+      
+      .player-list li .btn {
+        align-self: flex-end; /* Push kick button to the right */
+      }
+
+      /* Config */
+      .config-body {
+          flex-direction: column;
+          gap: 0.8rem;
+          align-items: flex-start;
+          margin: 0 auto;
+          max-width: 250px;
+      }
+      
+      .player-selection-form {
+        grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+      }
+    }
+
+    @media (max-width: 400px) {
+        h1 { font-size: 2rem; }
+        h2 { font-size: 1.5rem; }
+        .btn { padding: 0.6rem 1.2rem; font-size: 0.9rem; }
+    }
   </style>
 </head>
 
@@ -508,16 +688,16 @@
         <button class="btn" id="showLoginBtn">Login</button>
         <button class="btn" id="showSignupBtn">Sign Up</button>
       </div>
-      <form id="loginForm" class="hidden auth-form" style="max-width:400px;margin:0 auto;">
+      <form id="loginForm" class="hidden auth-form" style="max-width:400px;margin:0 auto;text-align:center;">
         <input type="text" id="loginUsername" placeholder="Username" />
         <input type="password" id="loginPassword" placeholder="Password" />
-        <button type="button" class="btn" id="loginSubmit">Login</button>
+        <button type="button" class="btn" id="loginSubmit">Submit</button>
       </form>
-      <form id="signupForm" class="hidden auth-form" style="max-width:400px;margin:0 auto;">
+      <form id="signupForm" class="hidden auth-form" style="max-width:400px;margin:0 auto;text-align:center;">
         <input type="text" id="signupUsername" placeholder="Username" />
         <input type="text" id="signupDisplay" placeholder="Display Name" />
         <input type="password" id="signupPassword" placeholder="Password" />
-        <button type="button" class="btn" id="signupSubmit">Sign Up</button>
+        <button type="button" class="btn" id="signupSubmit">Submit</button>
       </form>
     </section>
     <section id="landing" class="card" style="text-align:center;">
@@ -559,12 +739,23 @@
   <div id="joinRoomModal" class="modal hidden">
     <div class="modal-content card">
       <h2>Join Room</h2>
-      <p style="font-size:1.1rem;margin-top:0;">Enter the Room ID you wish to join. If the room is password protected, provide the password below (optional).</p>
+      <p style="font-size:1.1rem;margin-top:0;">Enter the Room ID you wish to join.</p>
       <input type="text" id="joinRoomIdInput" placeholder="Room ID" style="margin-bottom:0.75rem;" />
-      <input type="text" id="joinRoomPasswordInput" placeholder="Password (optional)" />
       <div style="margin-top:1rem;">
         <button class="btn" id="joinRoomConfirmBtn">Join Room</button>
         <button class="btn btn-danger" id="joinRoomCancelBtn">Cancel</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="enterPasswordModal" class="modal hidden">
+    <div class="modal-content card">
+      <h2>Room Password Required</h2>
+      <p style="font-size:1.1rem;margin-top:0;">This room is password protected. Please enter the password to join.</p>
+      <input type="password" id="enterRoomPasswordInput" placeholder="Password" />
+      <div style="margin-top:1rem;">
+        <button class="btn" id="enterRoomPasswordConfirmBtn">Join Room</button>
+        <button class="btn btn-danger" id="enterRoomPasswordCancelBtn">Cancel</button>
       </div>
     </div>
   </div>
