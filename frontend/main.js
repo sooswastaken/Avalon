@@ -454,8 +454,7 @@ async function joinRoom(id, password = null) {
 }
 
 function initWebSocket() {
-  const wsUrl = `${location.protocol === "https:" ? "wss" : "ws"}://${location.host
-    }/ws/${roomId}?auth=${encodeURIComponent(authToken)}`;
+  const wsUrl = `${location.protocol === "https:" ? "wss" : "ws"}://${location.host}/ws/${roomId}?auth=${encodeURIComponent(authToken)}`;
   ws = new WebSocket(wsUrl);
 
   ws.onmessage = event => {
@@ -475,6 +474,7 @@ function initWebSocket() {
     }
     else if (msg.type === "quest_result") showQuestModal(msg.data);
     else if (msg.type === "kicked") handleKick(msg);
+    else if (msg.type === "pause") handlePause(msg);
   };
 
   ws.onclose = event => {
@@ -1206,8 +1206,8 @@ function renderRoomList(rooms) {
     joinRoomBtn.textContent = "Join Room Via ID";
     return;
   }
-  const myRooms = rooms.filter(l => l.host_id === userId);
-  const otherRooms = rooms.filter(l => l.host_id !== userId);
+  const myRooms = rooms.filter(l => l.member);
+  const otherRooms = rooms.filter(l => !l.member && l.phase === "lobby");
 
   function createSection(title, list) {
     if (!list.length) return;
@@ -1226,12 +1226,16 @@ function renderRoomList(rooms) {
       info.textContent = `${l.host_name} (${l.player_count} ${playerLabel})`;
       const joinBtn = document.createElement("button");
       joinBtn.className = "btn";
-      joinBtn.textContent = l.host_id === userId ? "Reconnect" : "Enter";
+      const isMember = l.member;
+      joinBtn.textContent = isMember || l.host_id === userId ? "Reconnect" : "Enter";
       joinBtn.onclick = () => {
-        if (l.requires_password && l.host_id !== userId) {
-          showEnterPasswordModal(l.room_id);
-        } else {
-          joinRoom(l.room_id);
+        if (isMember || l.phase === "lobby") {
+          // allow reconnect or enter lobby
+          if (l.requires_password && !isMember && l.host_id !== userId) {
+            showEnterPasswordModal(l.room_id);
+          } else {
+            joinRoom(l.room_id);
+          }
         }
       };
       row.append(info, joinBtn);
@@ -1266,7 +1270,7 @@ function renderRoomList(rooms) {
 
 function initRoomWebSocket() {
   if (roomWs && roomWs.readyState !== WebSocket.CLOSED) return;
-  const wsUrl = `${location.protocol === "https:" ? "wss" : "ws"}://${location.host}/lobbies_ws`;
+  const wsUrl = `${location.protocol === "https:" ? "wss" : "ws"}://${location.host}/lobbies_ws${authToken ? `?auth=${encodeURIComponent(authToken)}` : ""}`;
   roomWs = new WebSocket(wsUrl);
   roomWs.onmessage = event => {
     try {
@@ -1309,3 +1313,14 @@ enterRoomPasswordConfirmBtn.onclick = () => {
     joinRoom(_pendingRoomIdForPassword, pw);
   }
 };
+
+// ---- Pause / Resume Handling ---- //
+function handlePause(msg) {
+  const players = msg.players || [];
+  if (players.length) {
+    pauseModalContent.innerHTML = `<h2>Game Paused</h2><p>Waiting for <strong>${players.join(", ")}</strong> to reconnect…</p>`;
+    pauseModal.classList.remove("hidden");
+  } else {
+    pauseModal.classList.add("hidden");
+  }
+}
