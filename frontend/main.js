@@ -23,6 +23,7 @@ const roleImgEl = document.getElementById("roleImg");
 const toggleBlurBtn = document.getElementById("toggleBlurBtn");
 const closeRoleBtn = document.getElementById("closeRoleBtn");
 const roleExtraContainer = document.getElementById("roleExtra");
+const roleTitleEl = document.getElementById("roleTitle");
 
 // Authentication Elements
 const authSection = document.getElementById("auth");
@@ -40,6 +41,13 @@ const signupSubmit = document.getElementById("signupSubmit");
 
 let pendingRoomId = null; // room to auto-join after auth
 let privateInfo = null;
+
+// --- Assassination voting helpers (must be defined before first use) --- //
+const EVIL_ROLES = ["Mordred", "Morgana", "Oberon", "Minion of Mordred", "Assassin"];
+let _assassinationVoted = false; // track whether current evil player has voted in the ongoing round
+let _assassinCandidatesKey = "";
+// Lady of the Lake internal flag
+let _ladyChosen = false; // whether current holder already submitted choice this round
 
 // Quest sizes mapping for UI (mirrors backend)
 const QUEST_SIZES = {
@@ -475,6 +483,14 @@ function initWebSocket() {
     else if (msg.type === "quest_result") showQuestModal(msg.data);
     else if (msg.type === "kicked") handleKick(msg);
     else if (msg.type === "pause") handlePause(msg);
+    else if (msg.type === "assassination_tie") {
+      _assassinationVoted = false;
+      showToast(`Tie vote among: ${msg.candidates.join(", ")}. Revote!`);
+    }
+    else if (msg.type === "lady_result") {
+      showToast(`${msg.target} is ${msg.loyalty.toUpperCase()}`);
+      _ladyChosen = false; // reset for next holder when token passes
+    }
   };
 
   ws.onclose = event => {
@@ -513,12 +529,25 @@ function handleKick(msg) {
   }
 }
 
+// Global flags
+window._roleInitDone = false; // indicates new game role initialization handled on this client
+
 function renderState(state) {
+  // Track whether the current user is the host for conditional UI controls
+  window._isHost = state.host_id === userId;
+
+  // Reset the init flag whenever we go back to lobby (pre-game)
+  if (state.phase === "lobby") {
+    window._roleInitDone = false;
+  }
   if (state.phase === "lobby") renderLobby(state);
   else renderGame(state);
 }
 
 function renderLobby(state) {
+  // Always ensure the lobby section is displayed when in lobby phase
+  show(lobbySection);
+
   const isFirstRender = !lobbySection.querySelector('#playerList');
 
   if (isFirstRender) {
@@ -527,7 +556,6 @@ function renderLobby(state) {
     window._currentRoleName = undefined;
     roleModal.classList.add("hidden");
     document.body.style.overflow = "auto";
-    show(lobbySection);
 
     const lobbyHTML = `
       <div class="header-row">
@@ -639,61 +667,174 @@ function renderLobby(state) {
 }
 
 
+/**
+ * ---- MODIFIED FUNCTION ----
+ * Renders the configuration options using a more visual, image-based UI.
+ * Handles enabling/disabling roles and selecting rounds for the Lady of the Lake.
+ * @param {object} state - The current game state from the server.
+ */
 function renderConfigOptions(state) {
   const configDiv = document.getElementById("configOptions");
-  configDiv.innerHTML = "";
+  configDiv.innerHTML = ""; // Clear previous content
+
   const isHost = state.host_id === userId;
   const cfg = state.config;
-  const requires7 = state.players.length < 7;
+  const isOberonAvailable = state.players.length >= 7;
 
+  // --- Main container ---
   const container = document.createElement("div");
   container.className = "config-options-container";
 
+  // --- Header ---
   const header = document.createElement("div");
   header.className = "config-header";
   header.innerHTML = "<h4>Optional Roles</h4>";
-  if (requires7) {
-    header.innerHTML +=
-      "<p>Morgana, Percival, and Oberon require 7+ players.</p>";
+  if (!isOberonAvailable) {
+    header.innerHTML += `<p style="font-size:0.9rem; color:var(--color-text-secondary);">Oberon requires 7+ players.</p>`;
   }
+  container.appendChild(header);
 
+  // --- Role cards container ---
   const body = document.createElement("div");
   body.className = "config-body";
+  container.appendChild(body);
 
-  const mpLabel = document.createElement("label");
-  const mpCheckbox = document.createElement("input");
-  mpCheckbox.type = "checkbox";
-  mpCheckbox.checked = cfg.morgana && cfg.percival;
-  mpCheckbox.disabled = !isHost || requires7;
-  mpLabel.append(mpCheckbox, " Morgana & Percival");
+  const options = [
+    {
+      key: "mp",
+      name: "Morgana & Percival",
+      img: "/images/morgana.png", // Using Morgana to represent the pair
+      enabled: cfg.morgana && cfg.percival,
+      available: true,
+    },
+    {
+      key: "oberon",
+      name: "Oberon",
+      img: "/images/oberon.png",
+      enabled: cfg.oberon,
+      available: isOberonAvailable,
+    },
+    {
+      key: "lady",
+      name: "Lady of the Lake",
+      img: "/images/ladyofthelake.png",
+      enabled: cfg.lady_enabled,
+      available: true,
+    },
+  ];
 
-  const obLabel = document.createElement("label");
-  const obCheckbox = document.createElement("input");
-  obCheckbox.type = "checkbox";
-  obCheckbox.checked = cfg.oberon;
-  obCheckbox.disabled = !isHost || requires7;
-  obLabel.append(obCheckbox, " Oberon");
+  options.forEach(opt => {
+    const card = document.createElement("div");
+    card.className = "config-option-card";
+    card.title = `${opt.name} (${opt.enabled ? "Enabled" : "Disabled"})`;
 
-  body.append(mpLabel, obLabel);
-  container.append(header, body);
+    card.classList.toggle("enabled", opt.enabled);
+    card.classList.toggle("disabled", !opt.enabled);
+    card.classList.toggle("unavailable", !opt.available);
+    card.classList.toggle("clickable", isHost && opt.available);
+
+    // Custom markup for Morgana & Percival pair – show both images
+    if (opt.key === "mp") {
+      card.classList.add("dual");
+      card.innerHTML = `
+        <div class="dual-img-wrapper">
+          <img src="/images/morgana.png" alt="Morgana">
+          <img src="/images/percival.png" alt="Percival">
+        </div>
+        <div class="overlay-icon"></div>
+        <span class="character-name-tooltip">${opt.name}</span>
+      `;
+    } else {
+      card.innerHTML = `
+        <img src="${opt.img}" alt="${opt.name}">
+        <div class="overlay-icon"></div>
+        <span class="character-name-tooltip">${opt.name}</span>
+      `;
+    }
+
+    if (isHost && opt.available) {
+      card.onclick = () => {
+        const currentConfig = readConfigFromDOM();
+        let newConfig = {};
+
+        if (opt.key === 'mp') newConfig = { ...currentConfig, morgana: !opt.enabled, percival: !opt.enabled };
+        else if (opt.key === 'oberon') newConfig = { ...currentConfig, oberon: !opt.enabled };
+        else if (opt.key === 'lady') newConfig = { ...currentConfig, lady_enabled: !opt.enabled };
+
+        sendConfig(newConfig);
+      };
+    }
+    body.appendChild(card);
+  });
+
+  // --- Lady of the Lake quest selector ---
+  const ladySelectorContainer = document.createElement("div");
+  ladySelectorContainer.className = "lady-quest-selector-container";
+  ladySelectorContainer.classList.toggle("disabled", !cfg.lady_enabled);
+  ladySelectorContainer.innerHTML = `<p>Select quests for the Lady to appear after:</p>`;
+
+  const ladySelector = document.createElement("div");
+  ladySelector.className = "lady-quest-selector";
+
+  for (let i = 1; i <= 5; i++) {
+    const marker = document.createElement("div");
+    marker.className = "lady-quest-marker";
+    marker.textContent = i;
+    marker.dataset.round = i;
+
+    const isSelectable = [2, 3, 4].includes(i);
+    const isSelected = cfg.lady_after_rounds?.includes(i);
+
+    marker.classList.toggle("selectable", isSelectable && isHost);
+    marker.classList.toggle("unselectable", !isSelectable);
+    marker.classList.toggle("selected", isSelected);
+    
+    if (isSelectable && isHost) {
+        marker.onclick = () => {
+            const currentConfig = readConfigFromDOM();
+            const currentRounds = currentConfig.lady_after_rounds || [];
+            const roundNum = parseInt(marker.dataset.round);
+
+            let newRounds;
+            if (currentRounds.includes(roundNum)) {
+                newRounds = currentRounds.filter(r => r !== roundNum);
+            } else {
+                newRounds = [...currentRounds, roundNum];
+            }
+            sendConfig({ ...currentConfig, lady_after_rounds: newRounds });
+        };
+    }
+    ladySelector.appendChild(marker);
+  }
+
+  ladySelectorContainer.appendChild(ladySelector);
+  container.appendChild(ladySelectorContainer);
+
   configDiv.appendChild(container);
-
-  function sendConfig() {
-    ws.send(
-      JSON.stringify({
-        type: "set_config",
-        morgana: mpCheckbox.checked,
-        percival: mpCheckbox.checked,
-        oberon: obCheckbox.checked,
-      })
-    );
-  }
-
-  if (isHost && !requires7) {
-    mpCheckbox.addEventListener("change", sendConfig);
-    obCheckbox.addEventListener("change", sendConfig);
-  }
 }
+
+/** Helper to read the current config state from the DOM for sending updates */
+function readConfigFromDOM() {
+    const options = document.querySelectorAll('.config-option-card');
+    const ladyRounds = [...document.querySelectorAll('.lady-quest-marker.selected')]
+        .map(el => parseInt(el.dataset.round));
+
+    return {
+        morgana: options[0]?.classList.contains('enabled') ?? false,
+        percival: options[0]?.classList.contains('enabled') ?? false,
+        oberon: options[1]?.classList.contains('enabled') ?? false,
+        lady_enabled: options[2]?.classList.contains('enabled') ?? false,
+        lady_after_rounds: ladyRounds
+    };
+}
+
+/** Helper to send the full config state to the server */
+function sendConfig(config) {
+    if (ws?.readyState === WebSocket.OPEN) {
+        ws.send(JSON.stringify({ type: "set_config", ...config }));
+    }
+}
+
 
 function renderQRCode(roomId) {
   const qrContainer = document.getElementById("qrContainer");
@@ -708,6 +849,12 @@ function renderQRCode(roomId) {
 }
 
 function renderGame(state) {
+  // Handle first render after a brand-new game starts (once per client)
+  if (state.round_number === 1 && !window._roleInitDone) {
+    roleContainer.innerHTML = "";
+    window._roleShown = false;
+    window._roleInitDone = true;
+  }
   show(gameSection);
   const me = state.players.find(p => p.user_id === userId);
 
@@ -724,6 +871,21 @@ function renderGame(state) {
     if (!window._roleShown) {
       showRoleModal(me.role, imgSrc);
       window._roleShown = true;
+    }
+    // Host-only quick reset button
+    if (window._isHost) {
+      const resetBtn = document.createElement("button");
+      resetBtn.textContent = "Return to Lobby";
+      resetBtn.className = "btn btn-danger lg";
+      resetBtn.style.marginLeft = "1rem";
+      resetBtn.onclick = () => {
+        if (confirm("Are you sure you want to reset the game and return to the lobby? All current progress will be lost.")) {
+          if (ws?.readyState === WebSocket.OPEN) {
+            ws.send(JSON.stringify({ type: "reset_lobby" }));
+          }
+        }
+      };
+      roleContainer.appendChild(resetBtn);
     }
   }
 
@@ -750,11 +912,13 @@ function renderScoreboard(state) {
 function renderQuestRow(state) {
   const questRow = document.getElementById("questRow");
   questRow.innerHTML = "";
+  const leadersArr = state.round_leaders || [];
   for (let i = 1; i <= 5; i++) {
     const card = document.createElement("div");
     card.className = "quest-card";
     const record = state.quest_history.find(q => q.round === i);
     const teamSize = QUEST_SIZES[state.players.length][i - 1];
+    const leaderNameGlobal = leadersArr[i - 1] || null;
 
     if (record) {
       const resultText = record.success ? "Pass" : "Fail";
@@ -764,12 +928,9 @@ function renderQuestRow(state) {
         </div>
         <div class="quest-info-toggle"></div>
         <div class="quest-details-content">
-          <div class="detail-group"><h5>Result</h5><p>${record.success ? "Success" : "Fail"
-        } (${record.fails} fail${record.fails !== 1 ? "s" : ""})</p></div>
+          <div class="detail-group"><h5>Result</h5><p>${record.success ? "Success" : "Fail"} (${record.fails} fail${record.fails !== 1 ? "s" : ""})</p></div>
           <div class="detail-group"><h5>Leader</h5><p>${record.leader}</p></div>
-          <div class="detail-group"><h5>Team</h5><p>${record.team.join(
-          ", "
-        )}</p></div>
+          <div class="detail-group"><h5>Team</h5><p>${record.team.join(", ")}</p></div>
         </div>
       `;
       card.onclick = () => showQuestModal(record);
@@ -779,9 +940,27 @@ function renderQuestRow(state) {
         card.classList.toggle("expanded");
       };
     } else {
-      card.innerHTML = `
-        <div class="quest-circle"><span>${teamSize}</span></div>
-      `;
+      if (i === state.round_number) {
+        const leaderName = state.players.find(p => p.user_id === state.current_leader)?.name || "TBD";
+        const teamNames = state.current_team.map(id => state.players.find(p => p.user_id === id).name);
+        card.innerHTML = `
+          <div class="quest-circle current"><span>${teamNames.length || teamSize}</span></div>
+          <div class="quest-info-toggle"></div>
+          <div class="quest-details-content">
+            <div class="detail-group"><h5>Leader</h5><p>${leaderName}</p></div>
+            <div class="detail-group"><h5>Team</h5><p>${teamNames.length ? teamNames.join(", ") : "Not selected"}</p></div>
+          </div>
+        `;
+        const toggle = card.querySelector(".quest-info-toggle");
+        toggle.onclick = e => {
+          e.stopPropagation();
+          card.classList.toggle("expanded");
+        };
+      } else {
+        card.innerHTML = `
+          <div class="quest-circle"><span>${teamSize}</span></div>
+        `;
+      }
     }
 
     const title = document.createElement("h4");
@@ -790,7 +969,15 @@ function renderQuestRow(state) {
     if (state.round_number === i) {
       title.style.color = "var(--color-accent-primary)";
     }
-    card.appendChild(title);
+
+    const leaderLabel = document.createElement("p");
+    leaderLabel.style.margin = "0.2rem 0 0.2rem";
+    leaderLabel.style.fontSize = "0.9rem";
+    leaderLabel.style.color = "var(--color-text-secondary)";
+    leaderLabel.textContent = leaderNameGlobal ? `Leader: ${leaderNameGlobal}` : "Leader: TBD";
+
+    card.prepend(leaderLabel);
+    card.prepend(title);
     questRow.appendChild(card);
   }
 }
@@ -818,6 +1005,9 @@ function renderPhaseAndActions(state) {
       break;
     case "quest":
       renderQuestPhase(state);
+      break;
+    case "lady":
+      renderLadyPhase(state);
       break;
     case "assassination":
       renderAssassinationPhase(state);
@@ -962,44 +1152,108 @@ function renderQuestPhase(state) {
   actionsContainer.appendChild(btnContainer);
 }
 
-function renderAssassinationPhase(state) {
-  const me = state.players.find(p => p.user_id === userId);
-  if (me.role !== "Assassin" || state.winner) return;
+function renderLadyPhase(state) {
   actionsContainer.classList.remove("hidden");
+
+  const holderName = state.players.find(p => p.user_id === state.lady_holder)?.name || "Someone";
+
+  if (state.lady_holder !== userId) {
+    actionsContainer.innerHTML = `<h2>Lady of the Lake</h2><p>${holderName} is using the Lady of the Lake...</p>`;
+    return;
+  }
+
+  if (_ladyChosen) {
+    actionsContainer.innerHTML = `<p><em>Choice submitted. Waiting for server…</em></p>`;
+    return;
+  }
+
+  const eligible = state.players.filter(p => p.user_id !== userId && !state.lady_history.includes(p.user_id));
+  if (!eligible.length) {
+    actionsContainer.innerHTML = `<p>No eligible players to inspect.</p>`;
+    return;
+  }
+
   const form = document.createElement("form");
   form.className = "player-selection-form";
-  form.innerHTML = state.players
-    .filter(
-      p =>
-        !["Assassin", "Minion of Mordred", "Morgana", "Oberon", "Mordred"].includes(
-          p.role
-        )
-    )
-    .map(
-      p => `
+  form.innerHTML = eligible.map(p => `
     <label>
-      <input type="radio" value="${p.user_id}" name="assassin-target">
+      <input type="radio" name="lady-target" value="${p.user_id}">
       <span class="player-option">${p.name}</span>
-    </label>
-  `
-    )
-    .join("");
-  const shootBtn = document.createElement("button");
-  shootBtn.textContent = "Assassinate";
-  shootBtn.className = "btn btn-danger";
-  shootBtn.onclick = () => {
+    </label>`).join("");
+
+  const chooseBtn = document.createElement("button");
+  chooseBtn.textContent = "Inspect Loyalty";
+  chooseBtn.className = "btn btn-success";
+  chooseBtn.onclick = () => {
     const target = form.querySelector("input:checked")?.value;
-    if (target) {
-      ws.send(JSON.stringify({ type: "assassin_guess", target }));
-    } else {
-      showToast("You must select a target.");
-    }
+    if (!target) return showToast("Select a target");
+    ws.send(JSON.stringify({ type: "lady_choose", target }));
+    _ladyChosen = true;
+    actionsContainer.innerHTML = `<p><em>Choice submitted. Waiting for result…</em></p>`;
   };
+
+  actionsContainer.innerHTML = `<h2>Lady of the Lake</h2><p>Select a player to reveal their loyalty.</p>`;
+  actionsContainer.append(form, chooseBtn);
+}
+
+function renderAssassinationPhase(state) {
+  const me = state.players.find(p => p.user_id === userId);
+
+  // Reset vote flag if candidate pool changed (new round after tie)
+  const candidates = (state.assassin_candidates && state.assassin_candidates.length)
+    ? state.assassin_candidates
+    : state.players.filter(pl => !EVIL_ROLES.includes(pl.role)).map(pl => pl.user_id);
+  const key = candidates.slice().sort().join(",");
+  if (key !== _assassinCandidatesKey) {
+    _assassinCandidatesKey = key;
+    _assassinationVoted = false;
+  }
+
+  if (state.winner) return; // game over already decided
+
+  if (!EVIL_ROLES.includes(me.role)) {
+    // Good players just wait
+    actionsContainer.classList.add("hidden");
+    return;
+  }
+
+  actionsContainer.classList.remove("hidden");
+
+  if (_assassinationVoted) {
+    actionsContainer.innerHTML = `<p><em>Vote submitted. Waiting for other evil players...</em></p>`;
+    return;
+  }
+
+  // Build voting UI
+  const form = document.createElement("form");
+  form.className = "player-selection-form";
+  form.innerHTML = candidates
+    .map(pid => {
+      const playerName = state.players.find(p => p.user_id === pid).name;
+      return `
+        <label>
+          <input type="radio" value="${pid}" name="merlin-target">
+          <span class="player-option">${playerName}</span>
+        </label>`;
+    })
+    .join("");
+
+  const voteBtn = document.createElement("button");
+  voteBtn.textContent = "Vote";
+  voteBtn.className = "btn btn-danger";
+  voteBtn.onclick = () => {
+    const target = form.querySelector("input:checked")?.value;
+    if (!target) return showToast("Select a target first");
+    ws.send(JSON.stringify({ type: "assassination_vote", target }));
+    _assassinationVoted = true;
+    actionsContainer.innerHTML = `<p><em>Vote submitted. Waiting for other evil players...</em></p>`;
+  };
+
   actionsContainer.innerHTML = `
-    <h2>Assassinate Merlin</h2>
-    <p>You believe one of these players is Merlin. Choose wisely.</p>
+    <h2>Decide Merlin's Fate</h2>
+    <p>Select the player you believe is <strong>Merlin</strong>.</p>
   `;
-  actionsContainer.append(form, shootBtn);
+  actionsContainer.append(form, voteBtn);
 }
 
 function getPhaseDescription(state, me) {
@@ -1013,10 +1267,14 @@ function getPhaseDescription(state, me) {
       return "Everyone is voting on the proposed team.";
     case "quest":
       return "The team is on the quest. Waiting for their decision...";
+    case "lady":
+      if (state.lady_holder === me.user_id) return "Use the Lady of the Lake to inspect a player";
+      const holder = state.players.find(p => p.user_id === state.lady_holder)?.name || "Someone";
+      return `${holder} is using the Lady of the Lake…`;
     case "assassination":
-      return me.role === "Assassin"
-        ? "You must assassinate Merlin!"
-        : "Waiting for the Assassin to act...";
+      return EVIL_ROLES.includes(me.role)
+        ? "Vote on who Merlin is…"
+        : "Evil team is deciding who Merlin is…";
     default:
       return "The game is afoot!";
   }
@@ -1081,6 +1339,10 @@ function showToast(message) {
 function showRoleModal(roleName, imgSrc) {
   roleImgEl.src = imgSrc;
   roleImgEl.alt = `${roleName} card`;
+  if (roleTitleEl) {
+    roleTitleEl.textContent = roleName;
+    roleTitleEl.classList.add("hidden");
+  }
   roleImgEl.classList.add("blurred");
   roleModal.classList.remove("hidden");
   document.body.style.overflow = "hidden";
@@ -1091,6 +1353,9 @@ function showRoleModal(roleName, imgSrc) {
   toggleBlurBtn.onclick = () => {
     const isBlurred = roleImgEl.classList.toggle("blurred");
     toggleBlurBtn.textContent = isBlurred ? "Reveal" : "Hide";
+    if (roleTitleEl) {
+      roleTitleEl.classList.toggle("hidden", isBlurred);
+    }
     roleExtraContainer.classList.toggle("hidden", isBlurred);
   };
   closeRoleBtn.onclick = () => {
@@ -1315,10 +1580,25 @@ enterRoomPasswordConfirmBtn.onclick = () => {
 };
 
 // ---- Pause / Resume Handling ---- //
+const pauseModal = document.getElementById("pauseModal");
+const pauseModalContent = document.getElementById("pauseModalContent");
 function handlePause(msg) {
   const players = msg.players || [];
   if (players.length) {
-    pauseModalContent.innerHTML = `<h2>Game Paused</h2><p>Waiting for <strong>${players.join(", ")}</strong> to reconnect…</p>`;
+    let html = `<h2>Game Paused</h2><p>Waiting for <strong>${players.join(", ")}</strong> to reconnect…</p>`;
+    if (window._isHost) {
+      html += `<button class="btn btn-danger" id="pauseResetBtn" style="margin-top:1rem;">Return to Lobby</button>`;
+    }
+    pauseModalContent.innerHTML = html;
+    if (window._isHost) {
+      document.getElementById("pauseResetBtn").onclick = () => {
+        if (confirm("Reset the game and return to lobby?")) {
+          if (ws?.readyState === WebSocket.OPEN) {
+            ws.send(JSON.stringify({ type: "reset_lobby" }));
+          }
+        }
+      };
+    }
     pauseModal.classList.remove("hidden");
   } else {
     pauseModal.classList.add("hidden");

@@ -6,7 +6,7 @@ from fastapi import FastAPI, WebSocket, WebSocketDisconnect, HTTPException, Head
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import HTMLResponse
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from passlib.context import CryptContext
 from tortoise.contrib.fastapi import register_tortoise
 from .models import User
@@ -42,9 +42,14 @@ class RoomConfig(BaseModel):
     merlin: bool = True
     assassin: bool = True
     mordred: bool = True
-    morgana: bool = False
-    percival: bool = False
+    # Enable Morgana & Percival by default; hosts can still disable them
+    morgana: bool = True
+    percival: bool = True
     oberon: bool = False
+    # --- Lady of the Lake configuration --- #
+    lady_enabled: bool = True  # Master toggle for the expansion rule
+    # Quest numbers (1-indexed) after which Lady of the Lake occurs. Defaults to 2, 3 & 4.
+    lady_after_rounds: List[int] = Field(default_factory=lambda: [2, 3, 4])
 
 class VoteRecord(BaseModel):
     approvals: Dict[str, bool]  # user_id -> True/False
@@ -68,12 +73,20 @@ class RoomState(BaseModel):
     round_number: int = 0
     good_wins: int = 0
     evil_wins: int = 0
-    subphase: Optional[str] = None  # proposal|voting|quest|assassination
+    subphase: Optional[str] = None  # lobby|proposal|voting|quest|lady|assassination
     current_team: List[str] = []
     votes: Dict[str, bool] = {}
     winner: Optional[str] = None  # "good" | "evil"
     submissions: Dict[str, str] = {}
     proposal_leader: Optional[str] = None  # user id of who proposed current team
+    # Leader for each quest (index 0-4). Value is player name or None if not yet determined/predicted.
+    round_leaders: List[Optional[str]] = []
+    # Candidates remaining in the current assassination voting round (player IDs of GOOD team)
+    assassin_candidates: List[str] = []
+    # --- Lady of the Lake runtime fields --- #
+    lady_holder: Optional[str] = None  # user_id of current token holder
+    lady_history: List[str] = []  # all user_ids that have ever held the token
+    lady_after_rounds: List[int] = []  # convenience copy from config for clients
 
 
 # ---- In-memory stores ---- #
@@ -109,10 +122,17 @@ class Room:
         self.winner: Optional[str] = None
         self.submissions: Dict[str, str] = {}
         self.proposal_leader: Optional[str] = None
+        # Assassination phase voting data
+        self.assassin_candidates: List[str] = []  # remaining possible Merlin candidates (player IDs)
+        self.assassin_votes: Dict[str, str] = {}  # evil player id -> voted target id
         # Flag to ensure we only write stats once per finished game
         self.stats_recorded: bool = False
         # Optional lobby password (plain-text for now; could be hashed in future)
         self.password: Optional[str] = password
+
+        # --- Lady of the Lake runtime state --- #
+        self.lady_holder: Optional[str] = None  # user_id of the player currently holding the token
+        self.lady_history: List[str] = []  # track all previous holders to enforce uniqueness
 
         # Track temporarily disconnected players (only relevant once game has started)
         self.disconnected_players: Set[str] = set()
@@ -144,6 +164,40 @@ class Room:
     def all_ready(self) -> bool:
         return all(p.ready for p in self.players.values()) and len(self.players) >= 5
 
+    # NEW: helper to compute leaders for each quest round (names) at the current moment
+    def _compute_round_leaders(self) -> List[Optional[str]]:
+        # Always return a 5-element list of leader names (or None) for quests 1-5
+        if not self.players:
+            return [None] * 5
+
+        order: List[str] = list(self.players.keys())
+        name_map: Dict[str, str] = {pid: p.name for pid, p in self.players.items()}
+
+        leaders: List[Optional[str]] = [None] * 5
+
+        # Fill in leaders for completed quests from history (these are authoritative)
+        for rec in self.quest_history:
+            rnd = rec.get("round")
+            if isinstance(rnd, int) and 1 <= rnd <= 5:
+                leaders[rnd - 1] = rec.get("leader")
+
+        # Current round leader (proposal/voting/quest phase)
+        if self.round_number and 1 <= self.round_number <= 5 and self.current_leader:
+            leaders[self.round_number - 1] = name_map.get(self.current_leader)
+
+        # Predict leaders for future rounds assuming default clockwise rotation
+        if self.current_leader in order:
+            idx = order.index(self.current_leader)
+        else:
+            idx = 0
+        current_idx = self.round_number - 1 if self.round_number else 0
+        for offset in range(current_idx + 1, 5):
+            steps_ahead = offset - current_idx
+            future_pid = order[(idx + steps_ahead) % len(order)]
+            leaders[offset] = name_map.get(future_pid)
+
+        return leaders
+
     # ---- Broadcasting ---- #
     async def broadcast_state(self):
         """Send entire room state snapshot to all connected clients."""
@@ -165,6 +219,11 @@ class Room:
             winner=self.winner,
             submissions=self.submissions,
             proposal_leader=self.proposal_leader,
+            round_leaders=self._compute_round_leaders(),
+            assassin_candidates=self.assassin_candidates,
+            lady_holder=self.lady_holder,
+            lady_history=self.lady_history,
+            lady_after_rounds=self.config.lady_after_rounds,
         ).model_dump()
         for ws in list(self.connections.values()):
             await ws.send_json({"type": "state", "data": state_payload})
@@ -565,8 +624,8 @@ async def websocket_endpoint(ws: WebSocket, room_id: str, auth: Optional[str] = 
     await send_private_info(room, user_id)
 
     # --- If a cleanup task was scheduled because the room became empty, cancel it on reconnect --- #
-    if getattr(room, "cleanup_task", None) and not room.cleanup_task.done():
-        room.cleanup_task.cancel()
+    if getattr(room, "cleanup_task", None) and not room.cleanup_task.done(): # type: ignore[reportOptionalMemberAccess]
+        room.cleanup_task.cancel() # type: ignore[reportOptionalMemberAccess]
         room.cleanup_task = None
 
     try:
@@ -651,11 +710,20 @@ async def handle_ws_message(room: Room, user_id: str, data: dict):
     elif msg_type == "submit_card":
         await handle_submit_card(room, user_id, data)
     elif msg_type == "assassin_guess":
-        await handle_assassin_guess(room, user_id, data)
+        # Legacy support – treat as a direct vote from an evil player
+        await handle_assassination_vote(room, user_id, {"target": data.get("target")})
+    elif msg_type == "assassination_vote":
+        await handle_assassination_vote(room, user_id, data)
     elif msg_type == "set_config":
         await handle_set_config(room, user_id, data)
     elif msg_type == "restart_game":
         await handle_restart_game(room, user_id)
+        await room.broadcast_state()
+    elif msg_type == "reset_lobby":
+        await handle_reset_lobby(room, user_id)
+        await room.broadcast_state()
+    elif msg_type == "lady_choose":
+        await handle_lady_choose(room, user_id, data)
     else:
         # TODO: handle in-game messages (team proposals, votes, etc.)
         pass
@@ -680,6 +748,11 @@ async def start_game(room: Room):
     # Pick first leader (first in shuffled order for simplicity)
     room.current_leader = shuffled_players[0].user_id
 
+    # Assign Lady of the Lake token (if enabled) – goes to the player to the right
+    if room.config.lady_enabled:
+        room.lady_holder = shuffled_players[-1].user_id  # player to the right (counter-clockwise)
+        room.lady_history = [room.lady_holder]
+
     # Init quest data
     room.round_number = 1
     room.good_wins = 0
@@ -695,7 +768,7 @@ async def start_game(room: Room):
 
 async def distribute_initial_info(room: Room):
     """Send private info to players according to roles."""
-    evil_players = [p for p in room.players.values() if p.role in {"Assassin", "Mordred", "Morgana", "Minion of Mordred"}]
+    evil_players = [p for p in room.players.values() if p.role in {"Mordred", "Morgana", "Minion of Mordred"}]
     evil_names = [p.name for p in evil_players]
 
     # Merlin sees all evil (except Mordred/Oberon) – send with key expected by frontend
@@ -734,7 +807,7 @@ async def send_private_info(room: Room, user_id: str):
     if ws is None:
         return
 
-    evil_players = [p for p in room.players.values() if p.role in {"Assassin", "Mordred", "Morgana", "Minion of Mordred"}]
+    evil_players = [p for p in room.players.values() if p.role in {"Mordred", "Morgana", "Minion of Mordred"}]
     evil_names = [p.name for p in evil_players]
 
     payload: Dict[str, List[str]] = {}
@@ -744,7 +817,7 @@ async def send_private_info(room: Room, user_id: str):
     if player.role == "Percival":
         merlin_like_names = [p.name for p in room.players.values() if p.role in {"Merlin", "Morgana"}]
         payload["percival_knows"] = merlin_like_names
-    if player.role in {"Assassin", "Mordred", "Morgana", "Minion of Mordred"}:
+    if player.role in {"Mordred", "Morgana", "Minion of Mordred"}:
         payload["evil"] = evil_names
 
     if payload:
@@ -754,47 +827,55 @@ async def send_private_info(room: Room, user_id: str):
 # ---- Role Logic ---- #
 
 def build_role_deck(num_players: int, config: RoomConfig) -> List[str]:
-    """Generate role list respecting player count and config."""
-    num_evil_required = {5:2,6:2,7:3,8:3,9:3,10:4}[num_players]
+    """Generate a shuffled list of roles according to player count and lobby config.
 
-    # Mandatory evil
-    evil_roles: List[str] = ["Assassin", "Mordred"]
+    The evil side must make up roughly one-third of the table (at least 33 %).
+    We always include *Mordred* so that there is at least one evil player hidden from Merlin.
+    Any optional evil roles (Morgana, Oberon) are added when toggled by the host (and
+    player count ≥ 7 as enforced elsewhere). After that we pad with generic *Minion of
+    Mordred* roles until we reach the required evil quota. Good roles are then filled
+    the rest of the way, always containing Merlin (and Percival when Morgana is
+    enabled).
+    """
 
-    remaining_evil = num_evil_required - len(evil_roles)
+    from math import ceil
 
-    # add optional evil roles
-    optional_evil_queue: List[str] = []
+    # Minimum number of evil players so that evil ≥ 33 % of the table (can be a bit above)
+    num_evil_required = max(2, ceil(num_players / 3))
+
+    # Mandatory evil roles
+    evil_roles: List[str] = ["Mordred"]
+
+    # Queue optional evil roles based on config
     if config.morgana:
-        optional_evil_queue.append("Morgana")
+        evil_roles.append("Morgana")
     if config.oberon:
-        optional_evil_queue.append("Oberon")
+        evil_roles.append("Oberon")
 
-    for r in optional_evil_queue:
-        if remaining_evil == 0:
-            break
-        evil_roles.append(r)
-        remaining_evil -=1
+    # Pad remaining evil slots with generic minions
+    remaining_evil = num_evil_required - len(evil_roles)
+    if remaining_evil > 0:
+        evil_roles.extend(["Minion of Mordred"] * remaining_evil)
 
-    # fill leftover with generic minions
-    evil_roles.extend(["Minion of Mordred"]*remaining_evil)
-
-    # Good roles
+    # Good roles – Merlin is mandatory. Percival only makes sense when Morgana is in play.
     good_roles: List[str] = ["Merlin"]
     if config.percival:
         good_roles.append("Percival")
 
-    remaining_good = num_players - (len(good_roles)+len(evil_roles))
-    good_roles.extend(["Loyal Servant of Arthur"]*remaining_good)
+    # Fill the table with generic loyal servants
+    remaining_good = num_players - (len(good_roles) + len(evil_roles))
+    good_roles.extend(["Loyal Servant of Arthur"] * remaining_good)
 
     roles = good_roles + evil_roles
-    import random; random.shuffle(roles)
+    import random
+    random.shuffle(roles)
     return roles
 
 
 # ---- Statistics recording helpers ---- #
 
 GOOD_ROLES = {"Merlin", "Percival", "Loyal Servant of Arthur"}
-EVIL_ROLES = {"Assassin", "Mordred", "Morgana", "Oberon", "Minion of Mordred"}
+EVIL_ROLES = {"Mordred", "Morgana", "Oberon", "Minion of Mordred"}
 
 
 async def _update_player_stats(user_id: str, role: str | None, winner: str):
@@ -980,16 +1061,30 @@ async def handle_submit_card(room: Room, user_id: str, data: dict):
         if room.good_wins >= 3:
             room.phase = "assassination"
             room.subphase = "assassination"
+            # Initialize assassination voting
+            room.assassin_candidates = [pid for pid, pl in room.players.items() if pl.role in GOOD_ROLES]
+            room.assassin_votes = {}
         elif room.evil_wins >= 3:
             room.phase = "finished"
             room.winner = "evil"
             await record_game_stats(room)
         else:
-            # next round
+            # next round (but Lady of the Lake may interject before proposals)
+            current_round_completed = room.round_number  # capture before incrementing
+
             room.round_number += 1
             next_leader(room)
             history_entry["next_leader"] = room.players[room.current_leader].name if room.current_leader else None
-            room.subphase = "proposal"
+
+            # Determine if Lady of the Lake action should occur now
+            if (
+                room.config.lady_enabled
+                and current_round_completed in room.config.lady_after_rounds
+                and room.lady_holder is not None
+            ):
+                room.subphase = "lady"
+            else:
+                room.subphase = "proposal"
 
         # append record only after next leader computed (if applicable)
         room.quest_history.append(history_entry)
@@ -999,22 +1094,59 @@ async def handle_submit_card(room: Room, user_id: str, data: dict):
         await room.broadcast_state()
 
 
-async def handle_assassin_guess(room: Room, user_id: str, data: dict):
+async def handle_assassination_vote(room: Room, user_id: str, data: dict):
+    """Collect votes from all evil players to identify Merlin.
+
+    Voting continues until a single candidate receives the most votes (no tie).
+    """
     if room.phase != "assassination":
         return
-    player_role = room.players[user_id].role
-    if player_role != "Assassin":
+
+    voter_role = room.players[user_id].role
+    if voter_role not in EVIL_ROLES:
+        # Only evil players participate in the assassination vote
         return
+
     target = data.get("target")
-    if target not in room.players:
+    if target not in room.assassin_candidates:
+        # Invalid target (either not good or not in current candidate pool)
         return
-    if room.players[target].role == "Merlin":
-        room.winner = "evil"
+
+    room.assassin_votes[user_id] = target
+
+    # Check if all eligible evil players have voted
+    evil_player_ids = [pid for pid, p in room.players.items() if p.role in EVIL_ROLES]
+    if len(room.assassin_votes) < len(evil_player_ids):
+        await room.broadcast_state()
+        return  # still waiting for remaining votes
+
+    # Tally votes
+    from collections import Counter
+
+    counts = Counter(room.assassin_votes.values())
+    max_votes = max(counts.values())
+    top_ids = [pid for pid, cnt in counts.items() if cnt == max_votes]
+
+    if len(top_ids) == 1:
+        # Final decision reached
+        chosen_id = top_ids[0]
+        if room.players[chosen_id].role == "Merlin":
+            room.winner = "evil"
+        else:
+            room.winner = "good"
+        room.phase = "finished"
+        await record_game_stats(room)
+        await room.broadcast_state()
     else:
-        room.winner = "good"
-    room.phase = "finished"
-    await record_game_stats(room)
-    await room.broadcast_state()
+        # Tie – narrow candidate pool and restart voting
+        room.assassin_candidates = top_ids
+        room.assassin_votes = {}
+        # Inform players of tie so UI can prompt a re-vote
+        await room.broadcast({
+            "type": "assassination_tie",
+            "candidates": [room.players[pid].name for pid in top_ids],
+        })
+        await room.broadcast_state()
 
 
 # ---- Config handling ---- #
@@ -1026,9 +1158,9 @@ async def handle_set_config(room: Room, user_id: str, data: dict):
     percival = bool(data.get("percival", room.config.percival))
     oberon = bool(data.get("oberon", room.config.oberon))
 
-    # optional roles require 7+ players
+    # Oberon still requires 7+ players; Morgana & Percival are always allowed
     if len(room.players) < 7:
-        morgana = percival = oberon = False
+        oberon = False
 
     # enforce Morgana & Percival paired
     if morgana != percival:
@@ -1037,6 +1169,17 @@ async def handle_set_config(room: Room, user_id: str, data: dict):
     room.config.morgana = morgana
     room.config.percival = percival
     room.config.oberon = oberon
+
+    lady_enabled = bool(data.get("lady_enabled", room.config.lady_enabled))
+    lady_after_rounds_in = data.get("lady_after_rounds")
+    if isinstance(lady_after_rounds_in, list) and all(isinstance(r, int) for r in lady_after_rounds_in):
+        # ensure values between 2 and 4 if provided
+        lady_rounds = [r for r in lady_after_rounds_in if 1 <= r <= 5]
+        if lady_rounds:
+            room.config.lady_after_rounds = sorted(set(lady_rounds))
+
+    room.config.lady_enabled = lady_enabled
+
     await room.broadcast_state()
 
 
@@ -1061,9 +1204,84 @@ async def handle_restart_game(room: Room, user_id: str):
     room.proposal_leader = None
     room.consecutive_rejections = 0
     room.stats_recorded = False
+    room.assassin_candidates = []
+    room.assassin_votes = {}
+    # Reset Lady of the Lake data
+    room.lady_holder = None
+    room.lady_history = []
     await room.broadcast_state()
     # Room has returned to lobby phase – update listing
     await broadcast_lobbies()
+
+
+async def handle_reset_lobby(room: Room, user_id: str):
+    """Force-reset the room back to lobby regardless of current phase (host only)."""
+    if user_id != room.host_id:
+        return
+
+    # Reset per-player fields – everyone becomes not ready
+    for p in room.players.values():
+        p.ready = False
+
+    # Reset room-wide state
+    room.phase = "lobby"
+    room.quest_history = []
+    room.round_number = 0
+    room.good_wins = 0
+    room.evil_wins = 0
+    room.subphase = None
+    room.current_team = []
+    room.votes = {}
+    room.winner = None
+    room.current_leader = None
+    room.proposal_leader = None
+    room.consecutive_rejections = 0
+    room.stats_recorded = False
+    room.assassin_candidates = []
+    room.assassin_votes = {}
+    # Reset Lady of the Lake data
+    room.lady_holder = None
+    room.lady_history = []
+
+    # Broadcast updated lobby state and update listing
+    await room.broadcast_state()
+    await broadcast_lobbies()
+
+
+# ---- Lady of the Lake handling ---- #
+async def handle_lady_choose(room: Room, user_id: str, data: dict):
+    """Process the Lady of the Lake choice from the current token holder."""
+    if room.subphase != "lady" or room.lady_holder != user_id:
+        return
+
+    target_id = str(data.get("target")) if data.get("target") else ""
+
+    # Basic validations
+    if (
+        target_id not in room.players
+        or target_id == user_id
+        or target_id in room.lady_history  # cannot choose someone who held the token before
+    ):
+        return
+
+    # Reveal loyalty privately to the Lady holder
+    target_role = room.players[target_id].role or ""
+    loyalty = "good" if target_role in GOOD_ROLES else "evil"
+    ws = room.connections.get(user_id)
+    if ws:
+        await ws.send_json({
+            "type": "lady_result",
+            "target": room.players[target_id].name,
+            "loyalty": loyalty,
+        })
+
+    # Transfer token
+    room.lady_holder = target_id
+    room.lady_history.append(target_id)
+
+    # Proceed to next proposal phase
+    room.subphase = "proposal"
+    await room.broadcast_state()
 
 
 # ---- Mount Frontend Static Files ---- #

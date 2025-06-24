@@ -262,11 +262,180 @@
         align-items: center;
     }
 
-    /* Config */
-    .config-options-container { margin-top: 2rem; padding-top: 1.5rem; border-top: 1px solid var(--color-border); }
-    .config-header { text-align: center; color: var(--color-text-secondary); margin-bottom: 1rem; }
-    .config-body { display: flex; justify-content: center; gap: 1.5rem; }
-    .config-body label { cursor: pointer; }
+    /* ---- MODIFIED: Config Section ---- */
+    .config-options-container { 
+        margin-top: 2rem; 
+        padding-top: 1.5rem; 
+        border-top: 1px solid var(--color-border); 
+    }
+    .config-header { 
+        text-align: center; 
+        color: var(--color-text-primary); /* Changed from secondary for better visibility */
+        margin-bottom: 1.5rem; /* Increased margin */
+    }
+    .config-body { 
+        display: flex; 
+        justify-content: center; 
+        gap: 1.5rem; 
+        flex-wrap: wrap; /* Allow wrapping on smaller screens */
+    }
+
+    .config-option-card {
+        position: relative;
+        border-radius: var(--border-radius-lg); /* CHANGED: Was 50% for circle */
+        overflow: visible; /* Allow tooltip to render outside the card */
+        border: 3px solid var(--color-border);
+        width: 90px;
+        height: 90px;
+        transition: transform 0.2s ease, box-shadow 0.2s ease;
+    }
+    .config-option-card.clickable {
+        cursor: pointer;
+    }
+    .config-option-card.clickable:hover {
+        transform: scale(1.05);
+        box-shadow: var(--glow-primary);
+    }
+    .config-option-card img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+        display: block;
+        transition: filter 0.3s ease;
+    }
+
+    .config-option-card .overlay-icon {
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        width: 40px;
+        height: 40px;
+        background-size: contain;
+        background-repeat: no-repeat;
+        background-position: center;
+        opacity: 0;
+        transition: opacity 0.3s ease;
+    }
+
+    .config-option-card.enabled img {
+        filter: brightness(1);
+    }
+    .config-option-card.enabled .overlay-icon {
+        background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%234cae5a' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='20 6 9 17 4 12'%3e%3c/polyline%3e%3c/svg%3e");
+        opacity: 1;
+        filter: drop-shadow(0 0 5px #000);
+    }
+    
+    .config-option-card.disabled img {
+        filter: grayscale(80%) brightness(0.6);
+    }
+    .config-option-card.disabled .overlay-icon {
+        background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23c93434' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3e%3cline x1='18' y1='6' x2='6' y2='18'%3e%3c/line%3e%3cline x1='6' y1='6' x2='18' y2='18'%3e%3c/line%3e%3c/svg%3e");
+        opacity: 1;
+        filter: drop-shadow(0 0 5px #000);
+    }
+    
+    .config-option-card.unavailable {
+        cursor: not-allowed;
+    }
+    .config-option-card.unavailable img {
+        filter: grayscale(100%) brightness(0.4);
+    }
+    .config-option-card.unavailable:hover {
+        transform: none;
+        box-shadow: none;
+    }
+    
+    /* NEW: Tooltip for character name */
+    .config-option-card .character-name-tooltip {
+        visibility: hidden;
+        opacity: 0;
+        position: absolute;
+        bottom: -2.5rem; /* Pushes it below the card */
+        left: 50%;
+        transform: translateX(-50%);
+        background: var(--color-bg-dark);
+        color: var(--color-text-primary);
+        padding: 0.4rem 0.8rem;
+        border-radius: var(--border-radius);
+        font-size: 0.9rem;
+        font-family: 'Cinzel', serif;
+        white-space: nowrap;
+        z-index: 10;
+        transition: visibility 0s 0.2s, opacity 0.2s ease;
+        pointer-events: none;
+        text-shadow: 1px 1px 2px rgba(0,0,0,0.7);
+        border: 1px solid var(--color-border);
+    }
+
+    /* Show tooltip on hover for any config card (host or spectator) */
+    .config-option-card:hover .character-name-tooltip {
+        visibility: visible;
+        opacity: 1;
+        transition: opacity 0.2s ease 0.1s; /* Fade in with a slight delay */
+    }
+
+    /* ---- NEW: Lady of the Lake Quest Selector ---- */
+    .lady-quest-selector-container {
+        width: 100%;
+        margin-top: 1.5rem;
+        padding: 1rem;
+        background: rgba(0,0,0,0.2);
+        border-radius: var(--border-radius);
+        transition: opacity 0.3s ease;
+    }
+    .lady-quest-selector-container.disabled {
+        opacity: 0.5;
+        pointer-events: none;
+    }
+    .lady-quest-selector-container p {
+        text-align: center;
+        margin: 0 0 1rem;
+        font-family: 'Cinzel', serif;
+        font-size: 1rem;
+        color: var(--color-text-secondary);
+    }
+    .lady-quest-selector {
+        display: flex;
+        justify-content: center;
+        gap: 1rem;
+        align-items: center;
+    }
+    .lady-quest-marker {
+        width: 45px;
+        height: 45px;
+        border-radius: 50%;
+        border: 2px solid var(--color-border);
+        background: var(--color-bg-med);
+        color: var(--color-text-primary);
+        font-family: 'Cinzel', serif;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        font-size: 1.2rem;
+        font-weight: 600;
+        transition: all 0.2s ease;
+    }
+    .lady-quest-marker.selectable {
+        cursor: pointer;
+    }
+    .lady-quest-marker.selectable:hover {
+        border-color: var(--color-accent-primary);
+        box-shadow: var(--glow-primary);
+    }
+    .lady-quest-marker.selected {
+        border-color: #87CEEB; /* Sky blue for Lady of the Lake */
+        background-color: var(--color-bg-dark);
+        box-shadow: 0 0 15px rgba(135, 206, 235, 0.6);
+        background-image: url('./images/ladyofthelake.png');
+        background-size: 110%;
+        background-position: center;
+        color: transparent; /* Hide the number */
+    }
+    .lady-quest-marker.unselectable {
+        opacity: 0.6;
+    }
 
     /* Game */
     #phaseContainer {
@@ -649,11 +818,13 @@
 
       /* Config */
       .config-body {
-          flex-direction: column;
-          gap: 0.8rem;
+          flex-direction: row; /* Keep as row but let it wrap */
+          gap: 1rem;
           align-items: flex-start;
-          margin: 0 auto;
-          max-width: 250px;
+      }
+      .config-option-card {
+        width: 80px;
+        height: 80px;
       }
       
       .player-selection-form {
@@ -665,6 +836,23 @@
         h1 { font-size: 2rem; }
         h2 { font-size: 1.5rem; }
         .btn { padding: 0.6rem 1.2rem; font-size: 0.9rem; }
+    }
+
+    /* Special layout for Morgana & Percival pair */
+    .config-option-card.dual {
+        width: 180px; /* double width to fit two images */
+        display: flex;
+        padding: 0; /* remove internal padding */
+    }
+    .dual-img-wrapper {
+        display: flex;
+        width: 100%;
+        height: 100%;
+    }
+    .dual-img-wrapper img {
+        width: 50%;
+        height: 100%;
+        object-fit: cover;
     }
   </style>
 </head>
@@ -763,6 +951,7 @@
   <div id="roleModal" class="modal hidden">
     <div class="modal-content card">
       <h2>Your Role</h2>
+      <h3 id="roleTitle" style="margin:0.5rem 0 0.75rem; font-family: 'Cinzel', serif;"></h3>
       <img id="roleImg" class="role-card" alt="Your role card" />
       <div id="roleExtra"></div>
       <p class="warning">Do NOT show this card to other players as proof.</p>
@@ -773,7 +962,6 @@
     </div>
   </div>
 
-  <!-- NEW: Game Paused Modal -->
   <div id="pauseModal" class="modal hidden">
     <div class="modal-content card" id="pauseModalContent"></div>
   </div>
