@@ -83,6 +83,10 @@ class RoomState(BaseModel):
     round_leaders: List[Optional[str]] = []
     # Candidates remaining in the current assassination voting round (player IDs of GOOD team)
     assassin_candidates: List[str] = []
+    # List of player names that belong to the evil team (Oberon excluded). Populated only during the assassination phase so that all clients can see who the evil players are.
+    evil_players: List[str] = []
+    # Map of evil player user_id -> voted target user_id (only visible to clients for pending vote tracking)
+    assassin_votes: Dict[str, str] = {}
     # --- Lady of the Lake runtime fields --- #
     lady_holder: Optional[str] = None  # user_id of current token holder
     lady_history: List[str] = []  # all user_ids that have ever held the token
@@ -201,6 +205,16 @@ class Room:
     # ---- Broadcasting ---- #
     async def broadcast_state(self):
         """Send entire room state snapshot to all connected clients."""
+        # Compute visible evil player list for assassination phase (Oberon is hidden)
+        evil_players: List[str] = []
+        if self.phase == "assassination":
+            for p in self.players.values():
+                if p.role in EVIL_ROLES:
+                    if p.role == "Oberon":
+                        evil_players.append("Oberon")  # Mask actual identity
+                    else:
+                        evil_players.append(p.name)
+
         state_payload = RoomState(
             room_id=self.room_id,
             host_id=self.host_id,
@@ -221,6 +235,8 @@ class Room:
             proposal_leader=self.proposal_leader,
             round_leaders=self._compute_round_leaders(),
             assassin_candidates=self.assassin_candidates,
+            evil_players=evil_players,
+            assassin_votes=self.assassin_votes,
             lady_holder=self.lady_holder,
             lady_history=self.lady_history,
             lady_after_rounds=self.config.lady_after_rounds,
@@ -768,15 +784,18 @@ async def start_game(room: Room):
 
 async def distribute_initial_info(room: Room):
     """Send private info to players according to roles."""
+    # Evil players that know each other (exclude Oberon)
     evil_players = [p for p in room.players.values() if p.role in {"Mordred", "Morgana", "Minion of Mordred"}]
     evil_names = [p.name for p in evil_players]
 
-    # Merlin sees all evil (except Mordred/Oberon) – send with key expected by frontend
+    # Merlin sees ALL evil EXCEPT Mordred and Oberon
+    merlin_visible_names = [p.name for p in room.players.values() if p.role in EVIL_ROLES and p.role not in {"Mordred", "Oberon"}]
+
     merlin_ids = [p.user_id for p in room.players.values() if p.role == "Merlin"]
     for mid in merlin_ids:
         ws = room.connections.get(mid)
         if ws:
-            await ws.send_json({"type": "info", "merlin_knows": evil_names})
+            await ws.send_json({"type": "info", "merlin_knows": merlin_visible_names})
 
     # Evil players (except Oberon) see each other – key: "evil"
     for eid in [p.user_id for p in evil_players]:
@@ -809,11 +828,13 @@ async def send_private_info(room: Room, user_id: str):
 
     evil_players = [p for p in room.players.values() if p.role in {"Mordred", "Morgana", "Minion of Mordred"}]
     evil_names = [p.name for p in evil_players]
+    # Recompute Merlin's visible evil players (excludes Mordred & Oberon)
+    merlin_visible_names = [p.name for p in room.players.values() if p.role in EVIL_ROLES and p.role not in {"Mordred", "Oberon"}]
 
     payload: Dict[str, List[str]] = {}
 
     if player.role == "Merlin":
-        payload["merlin_knows"] = evil_names
+        payload["merlin_knows"] = merlin_visible_names
     if player.role == "Percival":
         merlin_like_names = [p.name for p in room.players.values() if p.role in {"Merlin", "Morgana"}]
         payload["percival_knows"] = merlin_like_names

@@ -666,8 +666,14 @@ function renderLobby(state) {
   renderConfigOptions(state);
   renderQRCode(state.room_id);
 
-  const finalHeight = lobbySection.scrollHeight + 40;
-  lobbySection.style.maxHeight = `${finalHeight}px`;
+  // When lobby content is rendered, we animate its height.
+  // Using a timeout ensures that the browser has calculated the layout
+  // and `scrollHeight` will be accurate. This prevents the animation from
+  // cutting off content like the 'Ready' button.
+  setTimeout(() => {
+    const finalHeight = lobbySection.scrollHeight;
+    lobbySection.style.maxHeight = `${finalHeight}px`;
+  }, 50);
 }
 
 
@@ -1009,6 +1015,13 @@ function renderPhaseAndActions(state) {
       state,
       state.players.find(p => p.user_id === userId)
     )}</p>`;
+
+  // Show list of evil players (Oberon excluded) to everyone during the assassination phase.
+  if (state.phase === "assassination" && Array.isArray(state.evil_players) && state.evil_players.length) {
+    const evilList = state.evil_players.join(", ");
+    phaseContainer.innerHTML += `<p><strong>Evil Players (Excluding Oberon):</strong> ${evilList}</p>`;
+  }
+
   actionsContainer.innerHTML = "";
   actionsContainer.classList.add("hidden");
 
@@ -1127,6 +1140,15 @@ function renderVotingPhase(state) {
     <h2>Vote on the Proposal</h2>
     <p><strong>${leaderName}</strong> has proposed: <strong>${teamNames}</strong></p>
   `;
+
+  // --- Show list of players who still need to vote --- //
+  const pending = state.players
+    .filter(p => !(p.user_id in state.votes))
+    .map(p => p.name);
+  if (pending.length) {
+    actionsContainer.innerHTML += `<p><em>Waiting on: ${pending.join(", ")}</em></p>`;
+  }
+
   if (!(userId in state.votes)) {
     const btnContainer = document.createElement("div");
     const approveBtn = document.createElement("button");
@@ -1147,30 +1169,43 @@ function renderVotingPhase(state) {
 }
 
 function renderQuestPhase(state) {
-  if (!state.current_team.includes(userId)) return;
-  if (userId in state.submissions) return;
-  actionsContainer.classList.remove("hidden");
-  actionsContainer.innerHTML = `
-    <h2>Play Your Card</h2>
-    <p>Choose whether the quest will succeed or fail.</p>
-  `;
-  const btnContainer = document.createElement("div");
-  const successBtn = document.createElement("button");
-  successBtn.textContent = "Play Success";
-  successBtn.className = "btn btn-success lg";
-  successBtn.onclick = () => ws.send(JSON.stringify({ type: "submit_card", card: "S" }));
-  const failBtn = document.createElement("button");
-  failBtn.textContent = "Play Fail";
-  failBtn.className = "btn btn-danger lg";
-  if (["Merlin", "Percival", "Loyal Servant of Arthur"].includes(
-    state.players.find(p => p.user_id === userId).role
-  )) {
-    failBtn.disabled = true;
+  // Determine remaining submissions first (used for everyone)
+  const remainingIds = state.current_team.filter(id => !(id in state.submissions));
+  const remainingNames = remainingIds.map(id => state.players.find(p => p.user_id === id).name);
+
+  // Pre-build helper line showing players who still need to submit
+  const pendingLine = remainingNames.length ? `<p><em>Waiting on: ${remainingNames.join(", ")}</em></p>` : "";
+
+  if (state.current_team.includes(userId) && !(userId in state.submissions)) {
+    actionsContainer.classList.remove("hidden");
+    actionsContainer.innerHTML = `
+      <h2>Play Your Card</h2>
+      <p>Choose whether the quest will succeed or fail.</p>
+      ${pendingLine}
+    `;
+    const btnContainer = document.createElement("div");
+    const successBtn = document.createElement("button");
+    successBtn.textContent = "Play Success";
+    successBtn.className = "btn btn-success lg";
+    successBtn.onclick = () => ws.send(JSON.stringify({ type: "submit_card", card: "S" }));
+    const failBtn = document.createElement("button");
+    failBtn.textContent = "Play Fail";
+    failBtn.className = "btn btn-danger lg";
+    const goodRoles = ["Merlin", "Percival", "Loyal Servant of Arthur"];
+    const myRole = state.players.find(p => p.user_id === userId).role;
+    if (goodRoles.includes(myRole)) {
+      // Good players attempting to play a Fail card will just see a warning popup.
+      failBtn.onclick = () => showFailAttemptWarning();
+    } else {
+      failBtn.onclick = () => ws.send(JSON.stringify({ type: "submit_card", card: "F" }));
+    }
+    btnContainer.append(successBtn, failBtn);
+    actionsContainer.appendChild(btnContainer);
   } else {
-    failBtn.onclick = () => ws.send(JSON.stringify({ type: "submit_card", card: "F" }));
+    // Not on team or already acted – simply show waiting message
+    actionsContainer.classList.remove("hidden");
+    actionsContainer.innerHTML = `<p><em>Waiting for quest team...</em></p>${pendingLine}`;
   }
-  btnContainer.append(successBtn, failBtn);
-  actionsContainer.appendChild(btnContainer);
 }
 
 function renderLadyPhase(state) {
@@ -1241,7 +1276,19 @@ function renderAssassinationPhase(state) {
   actionsContainer.classList.remove("hidden");
 
   if (_assassinationVoted) {
-    actionsContainer.innerHTML = `<p><em>Vote submitted. Waiting for other evil players...</em></p>`;
+    // Show pending list even after my vote
+    const pendingIds = state.players
+      .filter(p => EVIL_ROLES.includes(p.role))
+      .filter(p => !(state.assassin_votes && p.user_id in state.assassin_votes))
+      .map(p => {
+        if (p.role === "Oberon") return "Oberon";
+        return p.name;
+      });
+    let html = `<p><em>Vote submitted. Waiting for other evil players...</em></p>`;
+    if (pendingIds.length) {
+      html += `<p><em>Still waiting on: ${pendingIds.join(", ")}</em></p>`;
+    }
+    actionsContainer.innerHTML = html;
     return;
   }
 
@@ -1275,6 +1322,18 @@ function renderAssassinationPhase(state) {
     <p>Select the player you believe is <strong>Merlin</strong>.</p>
   `;
   actionsContainer.append(form, voteBtn);
+
+  // Pending list (at initial render before my vote)
+  const pendingIds = state.players
+    .filter(p => EVIL_ROLES.includes(p.role))
+    .filter(p => !(state.assassin_votes && p.user_id in state.assassin_votes))
+    .map(p => {
+      if (p.role === "Oberon") return "Oberon";
+      return p.name;
+    });
+  if (pendingIds.length) {
+    actionsContainer.innerHTML += `<p><em>Waiting on: ${pendingIds.join(", ")}</em></p>`;
+  }
 }
 
 function getPhaseDescription(state, me) {
@@ -1624,4 +1683,27 @@ function handlePause(msg) {
   } else {
     pauseModal.classList.add("hidden");
   }
+}
+
+// ---- NEW: Warning popup when good player attempts to fail ---- //
+function showFailAttemptWarning() {
+  let modal = document.getElementById("goodFailModal");
+  if (!modal) {
+    modal = document.createElement("div");
+    modal.id = "goodFailModal";
+    modal.className = "modal hidden";
+    modal.innerHTML = `
+      <div class="modal-content card" style="text-align:center;">
+        <h2>Why the hell are you trying to fail the quest?</h2>
+        <button class="btn" id="goodFailDismissBtn">My Bad</button>
+      </div>
+    `;
+    document.body.appendChild(modal);
+    modal.querySelector("#goodFailDismissBtn").onclick = () => {
+      modal.classList.add("hidden");
+      document.body.style.overflow = "auto";
+    };
+  }
+  modal.classList.remove("hidden");
+  document.body.style.overflow = "hidden";
 }

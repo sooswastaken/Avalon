@@ -573,10 +573,15 @@
       backdrop-filter: blur(8px);
       display: flex;
       justify-content: center;
-      align-items: center;
+      /* MODIFIED: Align to top to allow scrolling of tall content */
+      align-items: flex-start;
       z-index: 900;
       opacity: 0;
       animation: fadeInModal 0.3s ease forwards;
+      /* ADDED: Ensure modal container is scrollable if content overflows */
+      overflow-y: auto;
+      /* ADDED: Provide padding for the scrollable area */
+      padding: 2rem 0;
     }
 
     @keyframes fadeInModal { to { opacity: 1; } }
@@ -786,6 +791,10 @@
       }
       
       /* Modals */
+      .modal {
+        /* ADDED: Reduce padding on mobile for better use of space */
+        padding: 1rem 0;
+      }
       .modal-content {
         width: 95%;
         padding: 1.5rem 1rem;
@@ -877,6 +886,11 @@
         background: var(--color-accent-primary);
         color: var(--color-text-dark);
         box-shadow: var(--glow-primary);
+    }
+
+    .roles-grid img {
+      border-radius: var(--border-radius-lg);
+      margin-top: 1rem;
     }
   </style>
 </head>

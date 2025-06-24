@@ -10,12 +10,6 @@
       "ability": "During the setup phase, you learn the identity of all Evil players, with the exception of Mordred.",
       "guidelines": "Your greatest challenge is to be influential without being obvious. If you are too direct, the Assassin will surely find you. Use your knowledge to propose and approve 'clean' teams. Cast suspicion on Evil players through your voting and discussion, but be prepared to occasionally endorse a known Evil player to throw the scent off yourself."
     },
-    "Assassin": {
-      "team": "Evil",
-      "description": "You are Mordred's secret weapon. Your sole purpose is to identify and eliminate Merlin, turning a potential defeat into a decisive victory.",
-      "ability": "If the Good team successfully completes three Quests, you have one opportunity to name a player you believe is Merlin. If you are correct, the Evil team wins the game.",
-      "guidelines": "Pay close attention to all game actions. Who seems to have too much information? Who makes consistently 'correct' but subtle plays? Who is everyone listening to? A player who tries too hard to seem like a simple Loyal Servant could be a clever Merlin. Your observation is key."
-    },
     "Mordred": {
       "team": "Evil",
       "description": "You are the hidden leader of the forces of Evil. Your identity is a secret to Merlin, making you the perfect saboteur.",
