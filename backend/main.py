@@ -1347,4 +1347,23 @@ async def list_rooms(current_user: _Optional[User] = Depends(_optional_user)):
 
 # ---- Mount frontend last ---- #
 
-app.mount("/", StaticFiles(directory="frontend", html=True), name="frontend") 
+# --- Custom StaticFiles subclass that disables caching for served files (except images) --- #
+# We'll mount this for the root frontend directory so browsers always fetch the latest
+# HTML/CSS/JS assets. Images remain served via the regular StaticFiles instance at
+# "/images" and may therefore still be cached by the client.
+
+class NoCacheStaticFiles(StaticFiles):
+    """StaticFiles variant that sends headers to prevent client-side caching."""
+
+    async def get_response(self, path: str, scope):  # type: ignore[override]
+        response = await super().get_response(path, scope)
+
+        # Inject no-cache headers so browsers revalidate on every request.
+        response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
+        response.headers["Pragma"] = "no-cache"
+        response.headers["Expires"] = "0"
+
+        return response
+
+# Mount the frontend with caching disabled so that clients always retrieve the latest assets.
+app.mount("/", NoCacheStaticFiles(directory="frontend", html=True), name="frontend") 
