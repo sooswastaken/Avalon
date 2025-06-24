@@ -1,0 +1,56 @@
+{
+  "gameInfo": {
+    "goodTeamObjective": "Win 3 Quests. If you succeed, your team must also survive the Assassin's guess to win.",
+    "evilTeamObjective": "Fail 3 Quests. Alternatively, if 5 teams are rejected in a single round, or if the Assassin correctly identifies Merlin after Good wins 3 Quests, your team wins."
+  },
+  "roles": {
+    "Merlin": {
+      "team": "Good",
+      "description": "As Arthur's most trusted advisor, you know the faces of Evil. You must guide the Loyal Servants to victory without revealing your identity.",
+      "ability": "During the setup phase, you learn the identity of all Evil players, with the exception of Mordred.",
+      "guidelines": "Your greatest challenge is to be influential without being obvious. If you are too direct, the Assassin will surely find you. Use your knowledge to propose and approve 'clean' teams. Cast suspicion on Evil players through your voting and discussion, but be prepared to occasionally endorse a known Evil player to throw the scent off yourself."
+    },
+    "Assassin": {
+      "team": "Evil",
+      "description": "You are Mordred's secret weapon. Your sole purpose is to identify and eliminate Merlin, turning a potential defeat into a decisive victory.",
+      "ability": "If the Good team successfully completes three Quests, you have one opportunity to name a player you believe is Merlin. If you are correct, the Evil team wins the game.",
+      "guidelines": "Pay close attention to all game actions. Who seems to have too much information? Who makes consistently 'correct' but subtle plays? Who is everyone listening to? A player who tries too hard to seem like a simple Loyal Servant could be a clever Merlin. Your observation is key."
+    },
+    "Mordred": {
+      "team": "Evil",
+      "description": "You are the hidden leader of the forces of Evil. Your identity is a secret to Merlin, making you the perfect saboteur.",
+      "ability": "Your identity is not revealed to Merlin. However, you know who your fellow Minions of Mordred are.",
+      "guidelines": "You are the Evil team's ultimate asset. Since Merlin cannot identify you, you can act as a trusted member of the Good team. Your goal should be to get onto mission teams, especially late-game ones, where your 'Fail' vote can be devastating and unexpected. Gaining Merlin's trust is a powerful strategy."
+    },
+    "Loyal Servant of Arthur": {
+      "team": "Good",
+      "description": "You are a true and honorable knight of the round table. You have no special powers, only your logic and your dedication to the cause of Good.",
+      "ability": "None. You only know your own allegiance.",
+      "guidelines": "You must use deduction to win. Carefully watch voting patterns, team proposals, and discussions. Who is voting against good teams? Who is trying to sow discord? Your voice and your vote are your power. You MUST always play a 'Success' card on missions."
+    },
+    "Minion of Mordred": {
+      "team": "Evil",
+      "description": "You are a loyal follower of Mordred, working from the shadows to bring down Arthur's kingdom.",
+      "ability": "You know the identities of your fellow Evil players (except Oberon). You may play either a 'Success' or 'Fail' card on missions.",
+      "guidelines": "Work with your fellow minions to fail three missions. It's often wise to have only one 'Fail' card on a mission to avoid exposing multiple Evil players. You can play 'Success' to build trust and get on later, more critical Quests. Your goal is to create confusion and mistrust among the Good players."
+    },
+    "Morgana": {
+      "team": "Evil",
+      "description": "You are a powerful sorceress who uses deception to aid the cause of Evil. To Percival, you appear to be Merlin.",
+      "ability": "During the setup phase, you reveal yourself to Percival as if you were Merlin.",
+      "guidelines": "Your primary mission is to confuse Percival. Since Percival sees both you and the real Merlin, you must act in a way that convinces him you are the true Merlin. This could involve making logical, 'Good' suggestions in public to earn his trust, leading him to doubt the real Merlin's actions."
+    },
+    "Percival": {
+      "team": "Good",
+      "description": "Your devotion to Arthur has granted you a special sight: you can see those who wield great magic.",
+      "ability": "During the setup phase, you see both Merlin and Morgana, but you do not know which is which. If Morgana is not in the game, you know Merlin's exact identity.",
+      "guidelines": "Your critical task is to determine which of the two players you saw is the real Merlin. Observe their actions closely. One will be trying to help Good win, while the other (Morgana) will be trying to confuse you. Once you believe you have identified Merlin, you must protect them and help the team trust their judgment, all without revealing what you know."
+    },
+    "Oberon": {
+      "team": "Evil",
+      "description": "You fight for Evil, but you walk your own path. You are a wild card, unknown to both your allies and your enemies.",
+      "ability": "You do not know who the other Evil players are, and they do not know you. Merlin is also unaware of your evil nature.",
+      "guidelines": "You are in a unique position. You can play unpredictably, as no one expects you to be on a 'team'. You can side with Good on one vote and Evil on another. This chaos can be a powerful tool for deception, but be warned: without knowing your allies, you may inadvertently work against their plans. Your path to victory is through careful, independent sabotage."
+    }
+  }
+} 
