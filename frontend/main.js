@@ -1,4 +1,4 @@
-/* global localStorage, location, fetch, WebSocket */
+/* global localStorage, location, fetch, WebSocket, btoa, history, alert, prompt, QRCode, sessionStorage, navigator */
 
 const API_BASE = ""; // same origin
 
@@ -12,13 +12,8 @@ let roomWs = null; // websocket for room list updates
 const landingSection = document.getElementById("landing");
 const lobbySection = document.getElementById("lobby");
 const gameSection = document.getElementById("game");
-const roomIdDisplay = document.getElementById("roomIdDisplay");
-const playerList = document.getElementById("playerList");
-const readyBtn = document.getElementById("readyBtn");
-const startGameBtn = document.getElementById("startGameBtn");
 const createRoomBtn = document.getElementById("createRoomBtn");
 const joinRoomBtn = document.getElementById("joinRoomBtn");
-const continueBtn = { onclick: () => { } };
 const roleContainer = document.getElementById("roleContainer");
 const phaseContainer = document.getElementById("phaseContainer");
 const actionsContainer = document.getElementById("actionsContainer");
@@ -77,11 +72,9 @@ const navBrand = document.getElementById("navBrand");
 let isLoggedIn = false;
 function updateAuthUI(loggedIn) {
   isLoggedIn = loggedIn;
-  // Hide or show the Profile and Leaderboard links depending on auth status
   navProfile.classList.toggle("hidden", !loggedIn);
   navLeaderboard.classList.toggle("hidden", !loggedIn);
 }
-// Hide profile link by default until we validate stored credentials
 updateAuthUI(false);
 
 navHome.onclick = navBrand.onclick = () => {
@@ -195,7 +188,6 @@ function renderProfile(p) {
   };
 }
 
-// ---- MODIFY EXISTING showAuth and show to include new sections ----
 const _allSections = [authSection, landingSection, lobbySection, gameSection, profileSection, leaderboardSection];
 
 function showAuth(mode = "login") {
@@ -210,6 +202,8 @@ function show(section) {
   _allSections.forEach(sec => sec.classList.add("hidden"));
   section.classList.remove("hidden");
   if (section === landingSection) {
+    lobbySection.innerHTML = '';
+    lobbySection.style.maxHeight = '0px';
     loadRoomList();
     initRoomWebSocket();
   }
@@ -299,8 +293,69 @@ function redirectHomeWithMessage(msg, clearCreds = false) {
   location.href = "/";
 }
 
-async function createRoom() {
-  const password = prompt("Set a password for this lobby (optional):");
+const passwordModal = document.getElementById("passwordModal");
+const passwordInput = document.getElementById("passwordInput");
+const createRoomConfirmBtn = document.getElementById("createRoomConfirmBtn");
+const createRoomCancelBtn = document.getElementById("createRoomCancelBtn");
+
+// Join Room Modal Elements
+const joinRoomModal = document.getElementById("joinRoomModal");
+const joinRoomIdInput = document.getElementById("joinRoomIdInput");
+const joinRoomPwInput = document.getElementById("joinRoomPwInput");
+const joinRoomConfirmBtn = document.getElementById("joinRoomConfirmBtn");
+const joinRoomCancelBtn = document.getElementById("joinRoomCancelBtn");
+
+function showCreateRoomModal() {
+  passwordInput.value = "";
+  passwordModal.classList.remove("hidden");
+  document.body.style.overflow = "hidden";
+}
+function hideCreateRoomModal() {
+  passwordModal.classList.add("hidden");
+  document.body.style.overflow = "auto";
+}
+createRoomCancelBtn.onclick = hideCreateRoomModal;
+createRoomConfirmBtn.onclick = () => {
+  const pw = passwordInput.value.trim();
+  hideCreateRoomModal();
+  createRoom(pw || null);
+};
+
+// ---- Join Room Modal helpers ---- //
+function showJoinRoomModal() {
+  joinRoomIdInput.value = "";
+  joinRoomPwInput.value = "";
+  joinRoomConfirmBtn.disabled = true;
+  joinRoomModal.classList.remove("hidden");
+  document.body.style.overflow = "hidden";
+}
+function hideJoinRoomModal() {
+  joinRoomModal.classList.add("hidden");
+  document.body.style.overflow = "auto";
+}
+joinRoomCancelBtn.onclick = hideJoinRoomModal;
+joinRoomIdInput.oninput = () => {
+  joinRoomConfirmBtn.disabled = !joinRoomIdInput.value.trim();
+};
+joinRoomConfirmBtn.onclick = () => {
+  const id = joinRoomIdInput.value.trim();
+  if (!id) return showToast("Room ID is required");
+  const pw = joinRoomPwInput.value.trim();
+  hideJoinRoomModal();
+  joinRoom(id, pw || null);
+};
+
+async function createRoom(password = null) {
+  show(lobbySection);
+  lobbySection.style.padding = '2rem';
+  lobbySection.style.maxHeight = '200px';
+  lobbySection.innerHTML = `
+    <div style="text-align:center;">
+      <h2>Creating Room...</h2>
+      <div class="loader"></div>
+    </div>
+  `;
+
   try {
     const res = await fetch(`/rooms`, {
       method: "POST",
@@ -308,33 +363,49 @@ async function createRoom() {
         Authorization: `Basic ${authToken}`,
         "Content-Type": "application/json",
       },
-      body: JSON.stringify({ password: password || undefined }),
+      body: JSON.stringify(password ? { password } : {}),
     });
+
     if (res.status === 401) {
       redirectHomeWithMessage("Your credentials were invalid.", true);
       return;
     }
     if (res.status === 400) {
-      // User already owns a lobby – prompt them to reconnect
-      showToast("You already have an active lobby. Reconnecting …");
-      loadRoomList();
+      showToast("You already have an active lobby. Reconnecting…");
+      show(landingSection);
       return;
     }
     if (!res.ok) throw new Error(`Server responded ${res.status}`);
+
     const data = await res.json();
-    ({ room_id: roomId, user_id: userId } = data);
-    localStorage.setItem("userId", userId);
-    localStorage.setItem("roomId", roomId);
-    history.pushState(null, "", `?room=${roomId}`);
-    initWebSocket();
-    show(lobbySection);
+
+    setTimeout(() => {
+      ({ room_id: roomId, user_id: userId } = data);
+      localStorage.setItem("userId", userId);
+      localStorage.setItem("roomId", roomId);
+      history.pushState(null, "", `?room=${roomId}`);
+      initWebSocket();
+    }, 1200);
+
   } catch (error) {
     showToast("Failed to create room. Please try again.");
     console.error(error);
+    show(landingSection);
   }
 }
 
+
 async function joinRoom(id, password = null) {
+  show(lobbySection);
+  lobbySection.style.padding = '2rem';
+  lobbySection.style.maxHeight = '200px';
+  lobbySection.innerHTML = `
+    <div style="text-align:center;">
+      <h2>Joining Room...</h2>
+      <div class="loader"></div>
+    </div>
+  `;
+
   try {
     const res = await fetch(`/rooms/${id}/join`, {
       method: "POST",
@@ -344,6 +415,7 @@ async function joinRoom(id, password = null) {
       },
       body: JSON.stringify(password ? { password } : {}),
     });
+
     if (res.status === 401) {
       redirectHomeWithMessage("Your credentials were invalid.", true);
       return;
@@ -354,6 +426,7 @@ async function joinRoom(id, password = null) {
     }
     if (res.status === 403) {
       showToast("Incorrect room password");
+      show(landingSection);
       return;
     }
     if (res.status === 400 && !res.ok) {
@@ -369,12 +442,12 @@ async function joinRoom(id, password = null) {
     ({ room_id: roomId, user_id: userId } = data);
     localStorage.setItem("userId", userId);
     localStorage.setItem("roomId", roomId);
-    history.pushState(null, "", `?room=${roomId}`);
+    history.pushState(null, "", `?room=${id}`);
     initWebSocket();
-    show(lobbySection);
   } catch (error) {
     showToast("Failed to join room. Please try again.");
     console.error(error);
+    show(landingSection);
   }
 }
 
@@ -388,12 +461,10 @@ function initWebSocket() {
     if (msg.type === "state") renderState(msg.data);
     else if (msg.type === "info") {
       privateInfo = msg;
-      // If role modal already visible, re-render its private-info section
       if (!roleModal.classList.contains("hidden") && window._currentRoleName) {
         const wasRevealed = !roleImgEl.classList.contains("blurred");
         showRoleModal(window._currentRoleName, roleImgEl.src);
         if (wasRevealed) {
-          // Keep it revealed after refresh
           roleImgEl.classList.remove("blurred");
           roleExtraContainer.classList.remove("hidden");
           toggleBlurBtn.textContent = "Hide";
@@ -446,17 +517,62 @@ function renderState(state) {
 }
 
 function renderLobby(state) {
-  // ---- Reset any previous game role/UI state ----
-  roleContainer.innerHTML = "";          // remove old "View Your Role" button, etc.
-  window._roleShown = false;              // allow automatic role popup next game
-  window._currentRoleName = undefined;    // clear cached role reference
-  roleModal.classList.add("hidden");     // make sure any role modal is closed
-  document.body.style.overflow = "auto"; // restore scrolling if modal was open
+  const isFirstRender = !lobbySection.querySelector('#playerList');
 
-  show(lobbySection);
+  if (isFirstRender) {
+    roleContainer.innerHTML = "";
+    window._roleShown = false;
+    window._currentRoleName = undefined;
+    roleModal.classList.add("hidden");
+    document.body.style.overflow = "auto";
+    show(lobbySection);
+
+    const lobbyHTML = `
+      <div class="header-row">
+        <h2>Room <span id="roomIdDisplay"></span></h2>
+        <button class="btn" id="shareBtn">Copy Link</button>
+      </div>
+      <div id="qrContainer" style="text-align:center;margin:0.5rem 0;"></div>
+      <ul id="playerList" class="player-list"></ul>
+      <div id="configOptions"></div>
+      <div style="text-align: center; margin-top: 1.5rem;">
+        <button class="btn" id="readyBtn">Ready</button>
+        <button class="btn hidden" id="startGameBtn">Start Game</button>
+      </div>
+    `;
+    lobbySection.innerHTML = lobbyHTML;
+
+    const roomIdDisplay = document.getElementById("roomIdDisplay");
+    roomIdDisplay.textContent = state.room_id;
+    setTimeout(() => {
+      roomIdDisplay.classList.add("populated");
+    }, 10);
+
+    document.getElementById("shareBtn").onclick = () => {
+      const shareLink = `${location.origin}?room=${roomId}`;
+      navigator.clipboard.writeText(shareLink);
+      showToast("Room link copied!");
+    };
+    document.getElementById("readyBtn").onclick = () => {
+      if (ws?.readyState === WebSocket.OPEN) {
+        ws.send(JSON.stringify({ type: "toggle_ready" }));
+      }
+    };
+    document.getElementById("startGameBtn").onclick = () => {
+      if (ws?.readyState === WebSocket.OPEN) {
+        ws.send(JSON.stringify({ type: "start_game" }));
+      }
+    };
+  }
+
+  const roomIdDisplay = document.getElementById("roomIdDisplay");
+  const playerList = document.getElementById("playerList");
+  const readyBtn = document.getElementById("readyBtn");
+  const startGameBtn = document.getElementById("startGameBtn");
+
   roomIdDisplay.textContent = state.room_id;
-  playerList.innerHTML = "";
 
+  playerList.innerHTML = "";
   state.players.forEach(p => {
     const li = document.createElement("li");
     const nameSpan = document.createElement("span");
@@ -465,22 +581,17 @@ function renderLobby(state) {
     if (p.user_id === state.host_id) {
       nameSpan.innerHTML = `<span class="host-indicator">★</span>${nameSpan.innerHTML}`;
     }
-
     const winsSpan = document.createElement("span");
     winsSpan.className = "wins-badge";
     winsSpan.textContent = `🏆 ${p.wins}`;
     nameSpan.appendChild(winsSpan);
-
     const statusIndicator = document.createElement("span");
     statusIndicator.className = "status-indicator";
     const statusDot = document.createElement("span");
-    statusDot.className = p.ready
-      ? "status-dot ready"
-      : "status-dot not-ready";
+    statusDot.className = p.ready ? "status-dot ready" : "status-dot not-ready";
     const statusText = document.createElement("span");
     statusText.textContent = p.ready ? "Ready" : "Not Ready";
     statusIndicator.append(statusDot, statusText);
-
     li.appendChild(nameSpan);
     if (state.host_id === userId && p.user_id !== userId) {
       const kickBtn = document.createElement("button");
@@ -488,8 +599,7 @@ function renderLobby(state) {
       kickBtn.className = "btn btn-danger";
       kickBtn.style.margin = 0;
       kickBtn.style.padding = "0.3rem 0.8rem";
-      kickBtn.onclick = () =>
-        ws.send(JSON.stringify({ type: "kick", target: p.user_id }));
+      kickBtn.onclick = () => ws.send(JSON.stringify({ type: "kick", target: p.user_id }));
       li.appendChild(kickBtn);
     }
     li.appendChild(statusIndicator);
@@ -514,7 +624,11 @@ function renderLobby(state) {
 
   renderConfigOptions(state);
   renderQRCode(state.room_id);
+
+  const finalHeight = lobbySection.scrollHeight + 40;
+  lobbySection.style.maxHeight = `${finalHeight}px`;
 }
+
 
 function renderConfigOptions(state) {
   const configDiv = document.getElementById("configOptions");
@@ -899,32 +1013,8 @@ function getPhaseDescription(state, me) {
   }
 }
 
-// Event handlers
-createRoomBtn.onclick = createRoom;
-joinRoomBtn.onclick = () => {
-  const id = prompt("Enter Room ID:");
-  if (id?.trim()) joinRoom(id.trim());
-};
-readyBtn.onclick = () => {
-  if (ws?.readyState === WebSocket.OPEN) {
-    ws.send(JSON.stringify({ type: "toggle_ready" }));
-  }
-};
-startGameBtn.onclick = () => {
-  if (ws?.readyState === WebSocket.OPEN) {
-    ws.send(JSON.stringify({ type: "start_game" }));
-  }
-};
-document.getElementById("shareBtn").onclick = () => {
-  const shareLink = `${location.origin}?room=${roomId}`;
-  navigator.clipboard.writeText(shareLink);
-  showToast("Room link copied!");
-  if (window.QRCode) {
-    QRCode.toCanvas(document.getElementById("qrCanvas"), shareLink, {
-      width: 128,
-    });
-  }
-};
+createRoomBtn.onclick = showCreateRoomModal;
+joinRoomBtn.onclick = showJoinRoomModal;
 
 window.addEventListener("load", async () => {
   const redirectMsg = sessionStorage.getItem("redirectMsg");
@@ -953,7 +1043,6 @@ window.addEventListener("load", async () => {
   }
 
   if (!credsValid) {
-    // Clear any invalid creds and show login/signup
     localStorage.removeItem("authToken");
     localStorage.removeItem("userId");
     authToken = null;
@@ -963,7 +1052,6 @@ window.addEventListener("load", async () => {
     return;
   }
 
-  // Credentials are valid – proceed as logged-in
   updateAuthUI(true);
   if (pendingRoomId) {
     await joinRoom(pendingRoomId);
@@ -1016,7 +1104,6 @@ function showRoleModal(roleName, imgSrc) {
   };
   const keysToShow = allowedKeysByRole[roleName] || [];
 
-  // store for potential refresh when info arrives later
   window._currentRoleName = roleName;
 
   if (privateInfo) {
@@ -1036,7 +1123,6 @@ function showRoleModal(roleName, imgSrc) {
     }
   }
 
-  /* ---- Append static role information & objectives ---- */
   if (GAME_DETAILS && GAME_DETAILS.roles && GAME_DETAILS.roles[roleName]) {
     const r = GAME_DETAILS.roles[roleName];
     const staticHTML = `
@@ -1055,32 +1141,29 @@ function showRoleModal(roleName, imgSrc) {
   }
 }
 
+// Quest Modal utilities
 const questModal = document.getElementById("questModal");
 const questModalContent = document.getElementById("questModalContent");
 
 function showQuestModal(record) {
-  const approves = Object.keys(record.votes).filter(n => record.votes[n]);
-  const rejects = Object.keys(record.votes).filter(n => !record.votes[n]);
+  const approves = Object.keys(record.votes || {}).filter(n => record.votes[n]);
+  const rejects = Object.keys(record.votes || {}).filter(n => !record.votes[n]);
   questModalContent.innerHTML = `
     <h2>Quest ${record.round} Result</h2>
     <h3>Quest ${record.success ? "Succeeded" : "Failed"}</h3>
-    <p>There were <strong>${record.fails}</strong> fail card${record.fails !== 1 ? "s" : ""
-    } played.</p>
+    <p>There were <strong>${record.fails}</strong> fail card${record.fails !== 1 ? "s" : ""} played.</p>
     <hr style="border-color: var(--color-border); margin: 1rem 0;">
     <p><strong>Leader:</strong> ${record.leader}</p>
     <p><strong>Proposed Team:</strong> ${record.team.join(", ")}</p>
-    <p><strong style="color: var(--color-accent-success);">Approved (${approves.length
-    }):</strong> ${approves.join(", ") || "None"}</p>
-    <p><strong style="color: var(--color-accent-danger);">Rejected (${rejects.length
-    }):</strong> ${rejects.join(", ") || "None"}</p>
+    <p><strong style="color: var(--color-accent-success);">Approved (${approves.length}):</strong> ${approves.join(", ") || "None"}</p>
+    <p><strong style="color: var(--color-accent-danger);">Rejected (${rejects.length}):</strong> ${rejects.join(", ") || "None"}</p>
     <button class="btn" id="closeQuestBtn">Close</button>
   `;
   questModal.classList.remove("hidden");
-  document.getElementById("closeQuestBtn").onclick = () =>
-    questModal.classList.add("hidden");
+  document.getElementById("closeQuestBtn").onclick = () => questModal.classList.add("hidden");
 }
 
-// ---- Room Listing ---- //
+// Lobby list helpers (landing page)
 async function loadRoomList() {
   const container = document.getElementById("roomListContainer");
   if (!container) return;
@@ -1105,10 +1188,9 @@ function renderRoomList(rooms) {
   container.innerHTML = "";
   if (!rooms.length) {
     container.innerHTML = "<p>No active rooms at the moment.</p>";
-    // Reset button states when there are no rooms at all
     createRoomBtn.classList.remove("hidden");
     createRoomBtn.textContent = "Create Room";
-    createRoomBtn.onclick = createRoom;
+    createRoomBtn.onclick = showCreateRoomModal;
     joinRoomBtn.classList.remove("hidden");
     joinRoomBtn.textContent = "Join Room Via ID";
     return;
@@ -1129,7 +1211,6 @@ function renderRoomList(rooms) {
       row.style.borderBottom = "1px solid var(--color-border)";
       row.style.padding = "0.5rem 0";
       const info = document.createElement("span");
-      // Show host's name instead of room id
       const playerLabel = l.player_count === 1 ? "player" : "players";
       info.textContent = `${l.host_name} (${l.player_count} ${playerLabel})`;
       const joinBtn = document.createElement("button");
@@ -1152,14 +1233,11 @@ function renderRoomList(rooms) {
   createSection("My Room", myRooms);
   createSection("Open Rooms", otherRooms);
 
-  // ---- Update the main action buttons ---- //
   const ownsRoom = myRooms.length > 0;
   const ownsBusyRoom = myRooms.some(r => r.player_count > 1);
 
-  // Update / hide Create / Reconnect button
   if (ownsRoom) {
     if (ownsBusyRoom) {
-      // Hide the duplicate reconnect button when others are already in room
       createRoomBtn.classList.add("hidden");
     } else {
       createRoomBtn.classList.remove("hidden");
@@ -1169,15 +1247,13 @@ function renderRoomList(rooms) {
   } else {
     createRoomBtn.classList.remove("hidden");
     createRoomBtn.textContent = "Create Room";
-    createRoomBtn.onclick = createRoom;
+    createRoomBtn.onclick = showCreateRoomModal;
   }
 
-  // Update Join Room button – always visible
   joinRoomBtn.classList.remove("hidden");
   joinRoomBtn.textContent = "Join Room Via ID";
 }
 
-// ---- Room WebSocket for live updates ---- //
 function initRoomWebSocket() {
   if (roomWs && roomWs.readyState !== WebSocket.CLOSED) return;
   const wsUrl = `${location.protocol === "https:" ? "wss" : "ws"}://${location.host}/lobbies_ws`;
@@ -1188,13 +1264,10 @@ function initRoomWebSocket() {
       if (msg.type === "lobbies" && Array.isArray(msg.data)) {
         renderRoomList(msg.data);
       }
-    } catch {}
+    } catch (e) { /* ignore parse errors */ }
   };
   roomWs.onclose = () => {
-    // Attempt to reconnect after short delay
     setTimeout(initRoomWebSocket, 3000);
   };
-  roomWs.onerror = () => {
-    // silent – reconnect handled by onclose
-  };
+  roomWs.onerror = () => {};
 }
