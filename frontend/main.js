@@ -75,6 +75,7 @@ const navHome = document.getElementById("navHome");
 const navLeaderboard = document.getElementById("navLeaderboard");
 const navProfile = document.getElementById("navProfile");
 const navBrand = document.getElementById("navBrand");
+const navWiki = document.getElementById("navWiki");
 
 // ---- Auth / Nav helpers ---- //
 let isLoggedIn = false;
@@ -95,6 +96,9 @@ navLeaderboard.onclick = () => {
 navProfile.onclick = () => {
   loadProfile();
   show(profileSection);
+};
+navWiki.onclick = () => {
+  window.open("/wiki.html", "_blank");
 };
 
 function loadLeaderboard() {
@@ -733,6 +737,14 @@ function renderConfigOptions(state) {
     card.classList.toggle("unavailable", !opt.available);
     card.classList.toggle("clickable", isHost && opt.available);
 
+    // Determine wiki URL for info icon
+    const wikiUrl = (() => {
+      if (opt.key === "mp") return "/wiki.html?item=morgana,percival";
+      if (opt.key === "oberon") return "/wiki.html?item=oberon";
+      if (opt.key === "lady") return "/wiki.html?item=ladyofthelake";
+      return "/wiki.html";
+    })();
+
     // Custom markup for Morgana & Percival pair – show both images
     if (opt.key === "mp") {
       card.classList.add("dual");
@@ -742,15 +754,24 @@ function renderConfigOptions(state) {
           <img src="/images/percival.png" alt="Percival">
         </div>
         <div class="overlay-icon"></div>
+        <span class="info-icon" title="Open Wiki">?</span>
         <span class="character-name-tooltip">${opt.name}</span>
       `;
     } else {
       card.innerHTML = `
         <img src="${opt.img}" alt="${opt.name}">
         <div class="overlay-icon"></div>
+        <span class="info-icon" title="Open Wiki">?</span>
         <span class="character-name-tooltip">${opt.name}</span>
       `;
     }
+
+    // --- Info icon click (opens wiki) --- //
+    card.querySelector(".info-icon").onclick = evt => {
+      evt.preventDefault();
+      evt.stopPropagation();
+      window.open(wikiUrl, "_blank");
+    };
 
     if (isHost && opt.available) {
       card.onclick = () => {

@@ -1,0 +1,492 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Avalon - Wiki</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700&family=EB+Garamond:wght@400;500;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      /* Medieval Theme Palette */
+      --color-bg-dark: #2a241b; /* Dark wood/stone */
+      --color-bg-med: #3e3629; /* Lighter wood/stone */
+      --color-parchment: #e9e2d4; /* Parchment for main text bg */
+      --color-border: #6d5d43; /* Aged bronze/wood border */
+      --color-text-primary: #e9e2d4; /* Light text on dark bg */
+      --color-text-dark: #31291a; /* Dark text on light bg */
+      --color-text-secondary: #a89984; /* Muted text */
+      --color-accent-primary: #d4af37; /* Royal Gold */
+      --color-accent-primary-hover: #f1c40f; /* Brighter Gold */
+      --color-accent-success: #3a7d44; /* Forest Green */
+      --color-accent-danger: #a02c2c; /* Deep Crimson */
+
+      --border-radius: 4px; /* Sharper edges */
+      --border-radius-lg: 6px;
+      --shadow-light: rgba(0, 0, 0, 0.3);
+      --shadow-medium: rgba(0, 0, 0, 0.5);
+      --transition-speed: 0.25s;
+
+      /* Glows re-imagined as magical auras */
+      --glow-primary: 0 0 18px rgba(212, 175, 55, 0.5);
+      --glow-danger: 0 0 18px rgba(160, 44, 44, 0.6);
+      --glow-success: 0 0 18px rgba(58, 125, 68, 0.5);
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    html {
+        scroll-behavior: smooth;
+    }
+
+    body {
+      font-family: 'EB Garamond', serif;
+      margin: 0;
+      padding: 1rem;
+      color: var(--color-text-primary);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      min-height: 100vh;
+      background-color: var(--color-bg-dark);
+      background-image: url('./images/brick.png');
+      background-size: cover;
+      background-position: center center;
+      background-repeat: no-repeat;
+      background-attachment: fixed;
+      text-shadow: 1px 1px 4px rgba(0,0,0,0.6);
+    }
+
+    header { text-align: center; margin-bottom: 2rem; }
+
+    h1, h2, h3, h4, h5 {
+      font-family: 'Cinzel', serif;
+      margin-top: 0;
+      font-weight: 600;
+    }
+
+    h1 {
+      font-size: 3rem;
+      font-weight: 700;
+      color: var(--color-text-primary);
+      text-shadow: 0 0 15px rgba(212, 175, 55, 0.4), 0 2px 3px rgba(0,0,0,0.7);
+    }
+
+    h2 {
+      font-size: 2.2rem;
+      margin-bottom: 0;
+      padding-bottom: 0;
+      color: var(--color-accent-primary);
+    }
+    
+    h3 {
+        font-size: 1.5rem;
+        margin-bottom: 1rem;
+    }
+
+    main { width: 100%; max-width: 1000px; padding: 0 1rem; }
+
+    p, li {
+        font-size: 1.1rem;
+        line-height: 1.7;
+        color: var(--color-text-secondary);
+    }
+
+    ul {
+        padding-left: 20px;
+    }
+
+    strong {
+        color: var(--color-text-primary);
+        font-weight: 600;
+    }
+
+    .card {
+      background: var(--color-bg-med);
+      border: 1px solid var(--color-border);
+      border-top: 3px solid var(--color-accent-primary);
+      border-radius: var(--border-radius-lg);
+      padding: 2rem;
+      margin: 2rem 0;
+      width: 100%;
+      box-shadow: 0 8px 24px var(--shadow-medium), inset 0 0 15px rgba(0,0,0,0.3);
+      animation: fadeIn 0.5s ease-out forwards;
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(15px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    
+    /* NEW STYLES for header with button */
+    .card-header-container {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        width: 100%;
+        border-bottom: 1px solid var(--color-border);
+        padding-bottom: 0.75rem;
+        margin-bottom: 1.5rem;
+    }
+
+    .jump-button {
+        font-family: 'Cinzel', serif;
+        text-decoration: none;
+        background-color: var(--color-bg-dark);
+        color: var(--color-accent-primary);
+        padding: 0.5rem 1rem;
+        border-radius: var(--border-radius);
+        border: 1px solid var(--color-border);
+        transition: all var(--transition-speed) ease;
+        box-shadow: 0 2px 5px rgba(0,0,0,0.3);
+        white-space: nowrap;
+    }
+
+    .jump-button:hover {
+        background-color: var(--color-accent-primary);
+        color: var(--color-bg-dark);
+        text-shadow: none;
+        box-shadow: 0 4px 10px rgba(0,0,0,0.4), var(--glow-primary);
+        transform: translateY(-2px);
+    }
+
+
+    /* WIKI SPECIFIC STYLES */
+
+    .character-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+        gap: 1.5rem;
+    }
+
+    .character-card {
+        background: var(--color-bg-dark);
+        border: 2px solid var(--color-border);
+        border-radius: var(--border-radius-lg);
+        overflow: hidden;
+        transition: transform var(--transition-speed) ease, box-shadow var(--transition-speed) ease;
+        box-shadow: 0 5px 15px var(--shadow-medium);
+    }
+
+    .character-card:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 10px 25px var(--shadow-medium), var(--glow-primary);
+    }
+
+    .character-header {
+        display: flex;
+        align-items: center;
+        gap: 1rem;
+        padding: 1rem;
+        cursor: pointer;
+        background: linear-gradient(145deg, #4e4435, #3a3226);
+    }
+    
+    .character-header img {
+        width: 80px;
+        height: 80px;
+        border-radius: 50%;
+        object-fit: cover;
+        border: 3px solid var(--color-border);
+    }
+
+    .character-header h3 {
+        margin: 0;
+        flex-grow: 1;
+        font-size: 1.6rem;
+        color: var(--color-text-primary);
+    }
+
+    .expand-icon {
+        font-size: 2rem;
+        transition: transform 0.4s ease;
+    }
+
+    .character-card.expanded .expand-icon {
+        transform: rotate(45deg);
+    }
+
+    .character-details {
+        max-height: 0;
+        opacity: 0;
+        overflow: hidden;
+        transition: max-height 0.5s ease-out, opacity 0.4s ease-out, padding 0.5s ease-out;
+        padding: 0 1.5rem;
+    }
+
+    .character-card.expanded .character-details {
+        opacity: 1;
+        max-height: 1200px; /* Large enough to fit content */
+        padding: 1.5rem;
+    }
+    
+    .character-details h4 {
+        color: var(--color-accent-primary);
+        font-size: 1.2rem;
+        border-bottom: 1px solid var(--color-border);
+        padding-bottom: 0.5rem;
+        margin: 1.5rem 0 1rem 0;
+    }
+
+    .good { color: var(--color-accent-success); text-shadow: 0 0 8px var(--glow-success); }
+    .evil { color: var(--color-accent-danger); text-shadow: 0 0 8px var(--glow-danger); }
+    
+    @media (max-width: 768px) {
+        h1 { font-size: 2.5rem; }
+        h2 { font-size: 1.8rem; }
+        main { padding: 0; }
+        .card { padding: 1.5rem; }
+        .card-header-container { flex-direction: column; align-items: flex-start; gap: 1rem; }
+    }
+  </style>
+</head>
+
+<body>
+  <header>
+    <h1>The Resistance: Avalon Wiki</h1>
+  </header>
+
+  <main>
+    <section id="overview" class="card">
+        <div class="card-header-container">
+            <h2>Game Overview</h2>
+            <a href="#characters" class="jump-button">Jump to Roles &raquo;</a>
+        </div>
+        <p>The Resistance: Avalon is a hidden-role social deduction game set in Arthurian legend. Players are secretly divided into two sides: the <strong>Loyal Servants of Arthur</strong> (the <span class="good">Good</span> team) and the <strong>Minions of Mordred</strong> (the <span class="evil">Evil</span> team). The <span class="good">Good</span> team wins by successfully completing three Quests, while the <span class="evil">Evil</span> team wins by sabotaging three Quests or by assassinating Merlin.</p>
+        
+        <h3>Core Mechanics</h3>
+        <p>All players must keep their roles secret. Open discussion, deception, and accusation are central to the game. No one may reveal their role card to others.</p>
+
+        <h3>Game Setup and Roles</h3>
+        <p>Avalon supports 5 to 10 players, with a specific mix of <span class="good">Good</span> and <span class="evil">Evil</span> roles for balance. At the start, each player is dealt a hidden character card determining their loyalty and any special ability. The number of <span class="evil">Evil</span> players increases with higher player counts (e.g., 5 players = 2 <span class="evil">Evil</span>; 7 players = 3 <span class="evil">Evil</span>; 10 players = 4 <span class="evil">Evil</span>).</p>
+
+        <h3>Initial Information (Night Phase)</h3>
+        <p>After roles are assigned, a scripted "night" phase is carried out with everyone's eyes closed, during which certain players gain information about others:</p>
+        <ul>
+            <li><strong><span class="evil">Evil</span> Reveal:</strong> All <span class="evil">Evil</span> players (except Oberon) open their eyes to recognize each other.</li>
+            <li><strong>Merlin's Knowledge:</strong> The <span class="evil">Evil</span> players (except Mordred and Oberon) make themselves known to Merlin. Merlin learns who is <span class="evil">Evil</span>, but does not learn Mordred's identity.</li>
+            <li><strong>Percival's Knowledge:</strong> If in play, Merlin and Morgana make themselves known to Percival, who sees both but does not know which is the true Merlin.</li>
+        </ul>
+        
+        <h3>Gameplay Phases</h3>
+        <p>Each round consists of a <strong>Team Building</strong> phase and a <strong>Quest</strong> phase.</p>
+        <ul>
+            <li><strong>Team Building:</strong> The current Leader proposes a team to go on a Quest. All players vote to approve or reject the team. If five teams in a row are rejected, <span class="evil">Evil</span> wins.</li>
+            <li><strong>Quest Phase:</strong> If the team is approved, the selected players secretly choose to either <strong>Succeed</strong> or <strong>Fail</strong> the Quest. <span class="good">Good</span> players must choose Success. <span class="evil">Evil</span> players can choose either. If even one Fail card is played (with some exceptions in larger games), the Quest fails.</li>
+        </ul>
+
+        <h3>Victory Conditions</h3>
+        <ul>
+            <li><strong><span class="evil">Evil</span> Wins:</strong> The <span class="evil">Evil</span> team wins if three Quests fail OR if five consecutive teams are rejected.</li>
+            <li><strong><span class="good">Good</span> Wins:</strong> The <span class="good">Good</span> team wins if three Quests succeed AND Merlin is not assassinated.</li>
+            <li><strong>The Assassination:</strong> If <span class="good">Good</span> succeeds on three Quests, the player with the Assassin role gets one chance to correctly identify and name the player who is Merlin. If they are correct, <span class="evil">Evil</span> steals the victory. If they are wrong, <span class="good">Good</span> wins.</li>
+        </ul>
+    </section>
+
+    <section id="characters" class="card">
+        <h2>Characters & Roles</h2>
+        <div class="character-grid">
+            <div class="character-card" data-character="merlin">
+                <div class="character-header">
+                    <img src="./images/merlin.png" alt="Merlin">
+                    <h3>Merlin</h3>
+                    <div class="expand-icon">+</div>
+                </div>
+                <div class="character-details">
+                    <h4>SIDE: <span class="good">GOOD</span></h4>
+                    <p>You know which players are <span class="evil">Evil</span>, but you do not know which of them is Mordred. You must guide the <span class="good">Good</span> team to victory without revealing your identity, as the Assassin can steal the win by naming you at the end of the game.</p>
+                    <h4>Tips & Tricks</h4>
+                    <ul>
+                        <li><strong>Subtlety is Key:</strong> Don't immediately reject every team with an <span class="evil">Evil</span> player. This makes you too obvious. Sometimes you have to approve a team with one <span class="evil">Evil</span> player (especially on early quests) to hide.</li>
+                        <li><strong>Signal with Votes:</strong> Use your approval votes to signal information. Approving a clean team enthusiastically and rejecting a bad team with a sigh can communicate a lot without words.</li>
+                        <li><strong>"Merlin-Speak":</strong> Develop ways to talk that guide your team. Phrases like "I'm not sure about this team, but I'm willing to risk it," or "I have a much better feeling about this proposal" can steer the conversation.</li>
+                        <li><strong>Watch the <span class="evil">Evil</span> Players:</strong> You know who most of them are. Watch how they vote and who they accuse. This helps you identify their strategies and find Mordred.</li>
+                    </ul>
+                </div>
+            </div>
+            
+            <div class="character-card" data-character="percival">
+                <div class="character-header">
+                    <img src="./images/percival.png" alt="Percival">
+                    <h3>Percival</h3>
+                    <div class="expand-icon">+</div>
+                </div>
+                <div class="character-details">
+                    <h4>SIDE: <span class="good">GOOD</span></h4>
+                    <p>During the night phase, you see the two players who are Merlin and Morgana, but you don't know which is which. Your job is to identify the true Merlin and protect them, while exposing the imposter.</p>
+                    <h4>Tips & Tricks</h4>
+                    <ul>
+                        <li><strong>The 50/50 Problem:</strong> Your primary goal is to solve the Merlin/Morgana puzzle. Listen closely to how both players talk. Morgana will try to act wise, but may slip up. Merlin will be knowledgeable but cautious.</li>
+                        <li><strong>Propose Test Teams:</strong> As leader, consider putting both your suspects on an early, small quest (like a 2-person team). See how they react and how others vote. If the quest fails, you've narrowed it down.</li>
+                        <li><strong>Become a Beacon:</strong> Once you are confident you know who Merlin is, your job is to protect them and subtly draw fire away from them. Make yourself a target for the Assassin if you have to.</li>
+                        <li><strong>Trust Your Gut:</strong> Sometimes the only information you have is how players carry themselves. Morgana might be too eager to lead, while Merlin might be more reserved.</li>
+                    </ul>
+                </div>
+            </div>
+            
+            <div class="character-card" data-character="loyalservantofarthur">
+                <div class="character-header">
+                    <img src="./images/loyalservantofarthur.png" alt="Loyal Servant">
+                    <h3>Loyal Servant</h3>
+                    <div class="expand-icon">+</div>
+                </div>
+                <div class="character-details">
+                    <h4>SIDE: <span class="good">GOOD</span></h4>
+                    <p>You are a standard member of the <span class="good">Good</span> team. You have no special knowledge. You must use logic, observation, and deduction to identify your allies and root out the <span class="evil">Evil</span> players. You must always play a Success card on quests.</p>
+                    <h4>Tips & Tricks</h4>
+                    <ul>
+                        <li><strong>Track the Votes:</strong> The most powerful information you have is the voting record. Keep track of who proposes which teams and who approves/rejects them. A string of rejections can often point to <span class="evil">Evil</span> players trying to get their allies on a team.</li>
+                        <li><strong>Listen Carefully:</strong> Pay attention to accusations. Is someone being accused for a good reason, or is it an <span class="evil">Evil</span> player trying to frame a <span class="good">Good</span> one?</li>
+                        <li><strong>Think Like Merlin:</strong> Try to figure out who Merlin might be and what they would be trying to communicate. If a team that looks good is rejected, ask why. There might be a hidden <span class="evil">Evil</span> player on it that only Merlin can see.</li>
+                    </ul>
+                </div>
+            </div>
+
+            <div class="character-card" data-character="mordred">
+                <div class="character-header">
+                    <img src="./images/mordred.png" alt="Mordred">
+                    <h3>Mordred</h3>
+                    <div class="expand-icon">+</div>
+                </div>
+                <div class="character-details">
+                    <h4>SIDE: <span class="evil">EVIL</span></h4>
+                    <p>You are the leader of the <span class="evil">Evil</span> team. You know who your fellow minions are, but you are completely hidden from Merlin. This is your greatest strength.</p>
+                    <h4>Tips & Tricks</h4>
+                    <ul>
+                        <li><strong>Act <span class="good">Good</span>:</strong> Your goal is to appear as a trustworthy Loyal Servant. Vote for what seem like "good" teams. Talk logically. Build trust so that you can get on a late-game quest and fail it.</li>
+                        <li><strong>Leverage Your Invisibility:</strong> Since Merlin doesn't know you, you can sometimes agree with Merlin's logic or even "help" the good team early on to solidify your cover.</li>
+                        <li><strong>Coordinate Silently:</strong> Use your votes to signal to your fellow minions. If you approve a team with another <span class="evil">Evil</span> player, they know you trust them to make the right play (succeed or fail).</li>
+                        <li><strong>Don't Be Afraid to Succeed:</strong> Playing a "Success" card, especially on a quest with another known <span class="evil">Evil</span> player, can sow immense confusion and make you look incredibly <span class="good">Good</span>.</li>
+                    </ul>
+                </div>
+            </div>
+
+            <div class="character-card" data-character="morgana">
+                <div class="character-header">
+                    <img src="./images/morgana.png" alt="Morgana">
+                    <h3>Morgana</h3>
+                    <div class="expand-icon">+</div>
+                </div>
+                <div class="character-details">
+                    <h4>SIDE: <span class="evil">EVIL</span></h4>
+                    <p>You appear to Percival as if you might be Merlin. Your mission is to confuse Percival for as long as possible, making him mistrust the real Merlin and potentially protect you instead.</p>
+                    <h4>Tips & Tricks</h4>
+                    <ul>
+                        <li><strong>Mimic Merlin:</strong> Try to act wise and thoughtful, but be careful not to overdo it. Make logical-sounding arguments. If you can figure out who Percival is, you can direct your performance at him.</li>
+                        <li><strong>Sow Discord:</strong> Subtly accuse the real Merlin. Say things like, "I think [Merlin's Player Name] is acting suspicious. They're trying too hard to lead us." This can make Percival doubt.</li>
+                        <li><strong>Identify Percival:</strong> The player who seems to be staring intently at you and one other person at the start of the game is likely Percival. Use this knowledge to your advantage.</li>
+                        <li><strong>Work with the Assassin:</strong> If you can confuse Percival into outing the real Merlin, you make the Assassin's job trivial.</li>
+                    </ul>
+                </div>
+            </div>
+
+            <div class="character-card" data-character="oberon">
+                <div class="character-header">
+                    <img src="./images/oberon.png" alt="Oberon">
+                    <h3>Oberon</h3>
+                    <div class="expand-icon">+</div>
+                </div>
+                <div class="character-details">
+                    <h4>SIDE: <span class="evil">EVIL</span></h4>
+                    <p>You are on the <span class="evil">Evil</span> team, but you are a mystery to everyone. You do not know who the other <span class="evil">Evil</span> players are, and they do not know who you are. Merlin also does not know you are <span class="evil">Evil</span>. You are a true wildcard.</p>
+                    <h4>Tips & Tricks</h4>
+                    <ul>
+                        <li><strong>Create Chaos:</strong> Your actions will be unpredictable to both teams. You can fail a quest that the other <span class="evil">Evil</span> players thought was safe, or succeed on one they wanted to fail. Use this to your advantage.</li>
+                        <li><strong>Appear as a bad <span class="good">Good</span> player:</strong> Your voting patterns might seem illogical because you don't have inside information. Lean into this. Act like a confused Loyal Servant who is bad at the game.</li>
+                        <li><strong>When to Fail:</strong> Failing a quest as Oberon is a powerful but risky move. It's best done when you are on a team with only known <span class="good">Good</span> players, as it casts suspicion on all of them and creates maximum confusion.</li>
+                        <li><strong>Hidden from Merlin:</strong> Like Mordred, Merlin can't see you. This makes you a prime candidate to get on a "Merlin-approved" team and unexpectedly fail it.</li>
+                    </ul>
+                </div>
+            </div>
+            
+            <div class="character-card" data-character="minionofmordred">
+                <div class="character-header">
+                    <img src="./images/minionofmordred.png" alt="EVIL">
+                    <h3>MINION OF MORDRED</h3>
+                    <div class="expand-icon">+</div>
+                </div>
+                <div class="character-details">
+                    <h4>SIDE: <span class="evil">EVIL</span></h4>
+                    <p>You are a standard member of the <span class="evil">Evil</span> team. You know who your fellow minions are (except Oberon). Your job is to sabotage quests, protect your leader Mordred, and help the Assassin identify Merlin.</p>
+                    <h4>Tips & Tricks</h4>
+                    <ul>
+                        <li><strong>The "Hammer":</strong> In 5-player games, one <span class="evil">Evil</span> player is often designated the "hammer" who should fail almost every quest they're on, while the other (often Mordred) builds trust.</li>
+                        <li><strong>Strategic Success:</strong> Don't just fail every quest. Playing a Success card can build your credibility and make it easier for you to get on a crucial late-game quest.</li>
+                        <li><strong>Frame the <span class="good">Good</span> Guys:</strong> If you are on a failed quest with two <span class="good">Good</span> players, immediately and confidently accuse one of them. The more conviction you have, the more believable you are.</li>
+                        <li><strong>Find Merlin:</strong> Listen for players who seem to know too much. A player who consistently rejects bad teams for no obvious reason is a prime suspect for being Merlin. Relay this suspicion to your Assassin.</li>
+                    </ul>
+                </div>
+            </div>
+
+            <div class="character-card" data-character="ladyofthelake">
+                <div class="character-header">
+                    <img src="./images/ladyofthelake.png" alt="Lady of the Lake">
+                    <h3>Lady of the Lake</h3>
+                    <div class="expand-icon">+</div>
+                </div>
+                <div class="character-details">
+                    <h4>Special Card (Optional)</h4>
+                    <p>The Lady of the Lake is a special token, not a player role. Starting after Quest 2, the player holding the token must choose another player to investigate. That player must privately reveal their alignment (<span class="good">Good</span> or <span class="evil">Evil</span>) to the holder. The token is then passed to the investigated player. This continues after each quest.</p>
+                    <h4>Tips & Tricks</h4>
+                    <ul>
+                        <li><strong>For the Holder:</strong> Investigate quiet players or players who have made a pivotal, suspicious vote. Don't waste it on someone who is obviously <span class="good">Good</span> or <span class="evil">Evil</span>. Announcing the result can be powerful, but lying about it (if you are <span class="evil">Evil</span>) is even more so.</li>
+                        <li><strong>For the Investigated:</strong> You must tell the truth about your alignment. However, the holder might lie to the group. If you are <span class="good">Good</span> and the <span class="evil">Evil</span> holder claims you are <span class="evil">Evil</span>, you have just found a definite <span class="evil">Evil</span> player.</li>
+                        <li><strong>Control is Key:</strong> The <span class="evil">Evil</span> team's goal should be to gain control of the token so they can lie about the results and frame <span class="good">Good</span> players. The <span class="good">Good</span> team needs to keep it in trusted hands.</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </section>
+  </main>
+  
+  <script>
+    document.addEventListener('DOMContentLoaded', () => {
+        const characterCards = document.querySelectorAll('.character-card');
+
+        // Logic for expanding/collapsing cards on click
+        characterCards.forEach(card => {
+            const header = card.querySelector('.character-header');
+            header.addEventListener('click', () => {
+                card.classList.toggle('expanded');
+            });
+        });
+
+        // --- NEW LOGIC FOR HANDLING URL PARAMETERS ---
+        const handleUrlQuery = () => {
+            const params = new URLSearchParams(window.location.search);
+            // Use 'item' for the query param, e.g., ?item=merlin or ?item=morgana,percival
+            const itemParam = params.get('item');
+
+            if (itemParam) {
+                // Support comma-separated list, e.g., ?item=morgana,percival
+                const items = itemParam.split(',').map(i => i.trim()).filter(Boolean);
+
+                items.forEach((item, idx) => {
+                    const sanitized = item.toLowerCase();
+                    const target = document.querySelector(`#${sanitized}`) || document.querySelector(`.character-card[data-character='${sanitized}']`);
+
+                    if (target) {
+                        // Instant scroll for first, smooth for subsequent to prevent jank
+                        target.scrollIntoView({ behavior: 'auto', block: 'center' });
+
+                        if (target.classList.contains('character-card')) {
+                            // Slight stagger so multiple expansions render nicely
+                            setTimeout(() => target.classList.add('expanded'), 120 + idx * 120);
+                        }
+                    }
+                });
+            }
+        };
+
+        // Run the function on page load
+        handleUrlQuery();
+    });
+  </script>
+</body>
+
+</html>
