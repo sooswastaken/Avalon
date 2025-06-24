@@ -298,12 +298,34 @@ const passwordInput = document.getElementById("passwordInput");
 const createRoomConfirmBtn = document.getElementById("createRoomConfirmBtn");
 const createRoomCancelBtn = document.getElementById("createRoomCancelBtn");
 
-// Join Room Modal Elements
+// ---- Join Room Modal Elements ---- //
 const joinRoomModal = document.getElementById("joinRoomModal");
 const joinRoomIdInput = document.getElementById("joinRoomIdInput");
-const joinRoomPwInput = document.getElementById("joinRoomPwInput");
+const joinRoomPasswordInput = document.getElementById("joinRoomPasswordInput");
 const joinRoomConfirmBtn = document.getElementById("joinRoomConfirmBtn");
 const joinRoomCancelBtn = document.getElementById("joinRoomCancelBtn");
+
+function showJoinRoomModal() {
+  joinRoomIdInput.value = "";
+  joinRoomPasswordInput.value = "";
+  joinRoomModal.classList.remove("hidden");
+  document.body.style.overflow = "hidden";
+}
+function hideJoinRoomModal() {
+  joinRoomModal.classList.add("hidden");
+  document.body.style.overflow = "auto";
+}
+joinRoomCancelBtn.onclick = hideJoinRoomModal;
+joinRoomConfirmBtn.onclick = () => {
+  const id = joinRoomIdInput.value.trim();
+  if (!id) {
+    showToast("Please enter a Room ID");
+    return;
+  }
+  const pw = joinRoomPasswordInput.value.trim();
+  hideJoinRoomModal();
+  joinRoom(id, pw || null);
+};
 
 function showCreateRoomModal() {
   passwordInput.value = "";
@@ -319,30 +341,6 @@ createRoomConfirmBtn.onclick = () => {
   const pw = passwordInput.value.trim();
   hideCreateRoomModal();
   createRoom(pw || null);
-};
-
-// ---- Join Room Modal helpers ---- //
-function showJoinRoomModal() {
-  joinRoomIdInput.value = "";
-  joinRoomPwInput.value = "";
-  joinRoomConfirmBtn.disabled = true;
-  joinRoomModal.classList.remove("hidden");
-  document.body.style.overflow = "hidden";
-}
-function hideJoinRoomModal() {
-  joinRoomModal.classList.add("hidden");
-  document.body.style.overflow = "auto";
-}
-joinRoomCancelBtn.onclick = hideJoinRoomModal;
-joinRoomIdInput.oninput = () => {
-  joinRoomConfirmBtn.disabled = !joinRoomIdInput.value.trim();
-};
-joinRoomConfirmBtn.onclick = () => {
-  const id = joinRoomIdInput.value.trim();
-  if (!id) return showToast("Room ID is required");
-  const pw = joinRoomPwInput.value.trim();
-  hideJoinRoomModal();
-  joinRoom(id, pw || null);
 };
 
 async function createRoom(password = null) {
@@ -1141,29 +1139,31 @@ function showRoleModal(roleName, imgSrc) {
   }
 }
 
-// Quest Modal utilities
 const questModal = document.getElementById("questModal");
 const questModalContent = document.getElementById("questModalContent");
 
 function showQuestModal(record) {
-  const approves = Object.keys(record.votes || {}).filter(n => record.votes[n]);
-  const rejects = Object.keys(record.votes || {}).filter(n => !record.votes[n]);
+  const approves = Object.keys(record.votes).filter(n => record.votes[n]);
+  const rejects = Object.keys(record.votes).filter(n => !record.votes[n]);
   questModalContent.innerHTML = `
     <h2>Quest ${record.round} Result</h2>
     <h3>Quest ${record.success ? "Succeeded" : "Failed"}</h3>
-    <p>There were <strong>${record.fails}</strong> fail card${record.fails !== 1 ? "s" : ""} played.</p>
+    <p>There were <strong>${record.fails}</strong> fail card${record.fails !== 1 ? "s" : ""
+    } played.</p>
     <hr style="border-color: var(--color-border); margin: 1rem 0;">
     <p><strong>Leader:</strong> ${record.leader}</p>
     <p><strong>Proposed Team:</strong> ${record.team.join(", ")}</p>
-    <p><strong style="color: var(--color-accent-success);">Approved (${approves.length}):</strong> ${approves.join(", ") || "None"}</p>
-    <p><strong style="color: var(--color-accent-danger);">Rejected (${rejects.length}):</strong> ${rejects.join(", ") || "None"}</p>
+    <p><strong style="color: var(--color-accent-success);">Approved (${approves.length
+    }):</strong> ${approves.join(", ") || "None"}</p>
+    <p><strong style="color: var(--color-accent-danger);">Rejected (${rejects.length
+    }):</strong> ${rejects.join(", ") || "None"}</p>
     <button class="btn" id="closeQuestBtn">Close</button>
   `;
   questModal.classList.remove("hidden");
-  document.getElementById("closeQuestBtn").onclick = () => questModal.classList.add("hidden");
+  document.getElementById("closeQuestBtn").onclick = () =>
+    questModal.classList.add("hidden");
 }
 
-// Lobby list helpers (landing page)
 async function loadRoomList() {
   const container = document.getElementById("roomListContainer");
   if (!container) return;
