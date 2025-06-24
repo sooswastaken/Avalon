@@ -301,13 +301,17 @@ const createRoomCancelBtn = document.getElementById("createRoomCancelBtn");
 // ---- Join Room Modal Elements ---- //
 const joinRoomModal = document.getElementById("joinRoomModal");
 const joinRoomIdInput = document.getElementById("joinRoomIdInput");
-const joinRoomPasswordInput = document.getElementById("joinRoomPasswordInput");
 const joinRoomConfirmBtn = document.getElementById("joinRoomConfirmBtn");
 const joinRoomCancelBtn = document.getElementById("joinRoomCancelBtn");
 
+// ---- Enter Room Password Modal Elements ---- //
+const enterPasswordModal = document.getElementById("enterPasswordModal");
+const enterRoomPasswordInput = document.getElementById("enterRoomPasswordInput");
+const enterRoomPasswordConfirmBtn = document.getElementById("enterRoomPasswordConfirmBtn");
+const enterRoomPasswordCancelBtn = document.getElementById("enterRoomPasswordCancelBtn");
+
 function showJoinRoomModal() {
   joinRoomIdInput.value = "";
-  joinRoomPasswordInput.value = "";
   joinRoomModal.classList.remove("hidden");
   document.body.style.overflow = "hidden";
 }
@@ -322,9 +326,8 @@ joinRoomConfirmBtn.onclick = () => {
     showToast("Please enter a Room ID");
     return;
   }
-  const pw = joinRoomPasswordInput.value.trim();
   hideJoinRoomModal();
-  joinRoom(id, pw || null);
+  joinRoom(id);
 };
 
 function showCreateRoomModal() {
@@ -423,8 +426,9 @@ async function joinRoom(id, password = null) {
       return;
     }
     if (res.status === 403) {
-      showToast("Incorrect room password");
       show(landingSection);
+      if (password) showToast("Incorrect room password");
+      showEnterPasswordModal(id);
       return;
     }
     if (res.status === 400 && !res.ok) {
@@ -530,10 +534,14 @@ function renderLobby(state) {
         <h2>Room <span id="roomIdDisplay"></span></h2>
         <button class="btn" id="shareBtn">Copy Link</button>
       </div>
-      <div id="qrContainer" style="text-align:center;margin:0.5rem 0;"></div>
+      <div class="qr-code-wrapper">
+        <p>Scan to join on another device</p>
+        <div id="qrContainer"></div>
+      </div>
       <ul id="playerList" class="player-list"></ul>
       <div id="configOptions"></div>
       <div style="text-align: center; margin-top: 1.5rem;">
+        <p id="startRequirement" class="hidden" style="color: var(--color-text-secondary); font-style: italic;">At least 5 players are needed to start.</p>
         <button class="btn" id="readyBtn">Ready</button>
         <button class="btn hidden" id="startGameBtn">Start Game</button>
       </div>
@@ -567,6 +575,7 @@ function renderLobby(state) {
   const playerList = document.getElementById("playerList");
   const readyBtn = document.getElementById("readyBtn");
   const startGameBtn = document.getElementById("startGameBtn");
+  const startRequirement = document.getElementById("startRequirement");
 
   roomIdDisplay.textContent = state.room_id;
 
@@ -608,6 +617,8 @@ function renderLobby(state) {
   readyBtn.textContent = meReady ? "Unready" : "Ready";
   readyBtn.classList.toggle("btn-danger", meReady);
   readyBtn.classList.toggle("btn-success", !meReady);
+  
+  startRequirement.classList.toggle('hidden', state.players.length >= 5);
 
   if (state.host_id === userId) {
     startGameBtn.classList.remove("hidden");
@@ -692,7 +703,7 @@ function renderQRCode(roomId) {
   qrContainer.appendChild(canvas);
   if (window.QRCode) {
     const url = `${location.origin}?room=${roomId}`;
-    QRCode.toCanvas(canvas, url, { width: 128 });
+    QRCode.toCanvas(canvas, url, { width: 128, color: { dark: '#e9e2d4', light: '#0000' } });
   }
 }
 
@@ -1218,8 +1229,7 @@ function renderRoomList(rooms) {
       joinBtn.textContent = l.host_id === userId ? "Reconnect" : "Enter";
       joinBtn.onclick = () => {
         if (l.requires_password && l.host_id !== userId) {
-          const pw = prompt("Enter room password:");
-          joinRoom(l.room_id, pw);
+          showEnterPasswordModal(l.room_id);
         } else {
           joinRoom(l.room_id);
         }
@@ -1271,3 +1281,31 @@ function initRoomWebSocket() {
   };
   roomWs.onerror = () => {};
 }
+
+// ---- Enter Password Modal Helpers ---- //
+let _pendingRoomIdForPassword = null;
+function showEnterPasswordModal(roomId) {
+  _pendingRoomIdForPassword = roomId;
+  enterRoomPasswordInput.value = "";
+  enterPasswordModal.classList.remove("hidden");
+  document.body.style.overflow = "hidden";
+  enterRoomPasswordInput.focus();
+}
+
+function hideEnterPasswordModal() {
+  enterPasswordModal.classList.add("hidden");
+  document.body.style.overflow = "auto";
+}
+
+enterRoomPasswordCancelBtn.onclick = hideEnterPasswordModal;
+enterRoomPasswordConfirmBtn.onclick = () => {
+  const pw = enterRoomPasswordInput.value.trim();
+  if (!pw) {
+    showToast("Please enter a password");
+    return;
+  }
+  hideEnterPasswordModal();
+  if (_pendingRoomIdForPassword) {
+    joinRoom(_pendingRoomIdForPassword, pw);
+  }
+};
