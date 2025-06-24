@@ -25,3 +25,9 @@ dist-ssr
 
 database.db
 database.db
+database.db-shm
+database.db-shm
+database.db-shm
+*.db-shm
+*.db-wal
+*.db
