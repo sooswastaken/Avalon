@@ -379,6 +379,23 @@ async def update_profile(req: UpdateProfileRequest, current_user: User = Depends
 
     await current_user.save()
 
+    # --- Propagate updated display name to all active rooms --- #
+    # If the user is currently present in any in-memory room instances, update the
+    # cached Player.name field so that other clients immediately see the change.
+    # We then broadcast an updated state snapshot for each affected room and also
+    # refresh the global lobby listing in case the user is a host.
+    for room in rooms.values():
+        if str(current_user.id) in room.players:
+            # Update the name stored in the Player object
+            room.players[str(current_user.id)].name = current_user.display_name
+            # If this player is the current leader/proposal leader/etc., no extra
+            # handling is needed because broadcast_state recomputes labels based
+            # on the Player objects.
+            await room.broadcast_state()
+
+    # Push updated lobby summaries (host name may have changed)
+    await broadcast_lobbies()
+
     return ProfileResponse(
         user_id=str(current_user.id),
         username=current_user.username,

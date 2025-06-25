@@ -172,7 +172,7 @@ function renderProfile(p) {
   form.style.maxWidth = "400px";
   form.style.margin = "0 auto";
   form.innerHTML = `
-    <label style="display:block;margin-bottom:0.5rem;">Username<br/><input type="text" id="profUsername" value="${p.username}" disabled /></label>
+    <label style="display:block;margin-bottom:0.5rem;">Username<br/><input type="text" id="profUsername" value="${p.username}" /></label>
     <label style="display:block;margin-bottom:0.5rem;">Display Name<br/><input type="text" id="profDisplay" value="${p.display_name}" /></label>
     <button class="btn" id="saveProfileBtn">Save</button>
     <hr style="margin:1rem 0;border-color:var(--color-border);"/>
@@ -181,21 +181,44 @@ function renderProfile(p) {
   `;
   profileSection.appendChild(form);
   document.getElementById("saveProfileBtn").onclick = async () => {
+    const newUsername = document.getElementById("profUsername").value.trim();
     const newDisplay = document.getElementById("profDisplay").value.trim();
+
+    if (!newUsername) return showToast("Username cannot be empty");
     if (!newDisplay) return showToast("Display name cannot be empty");
+
+    // Build payload with only changed fields
+    const payload = {};
+    if (newUsername !== p.username) payload.username = newUsername;
+    if (newDisplay !== p.display_name) payload.display_name = newDisplay;
+
+    if (!Object.keys(payload).length) {
+      return showToast("No changes to save");
+    }
+
     const res = await fetch(`/profile`, {
       method: "PUT",
       headers: {
         "Content-Type": "application/json",
         Authorization: `Basic ${authToken}`,
       },
-      body: JSON.stringify({ display_name: newDisplay }),
+      body: JSON.stringify(payload),
     });
-    if (res.ok) {
+
+    if (!res.ok) {
+      return showToast("Failed to update profile");
+    }
+
+    const updated = await res.json();
+
+    // Display-name change can be handled in-place, username change requires re-login
+    if (payload.username) {
+      showToast("Username updated. Please log in again.");
+      // Clear stored creds so user is redirected to login flow
+      redirectHomeWithMessage("Username changed. Please log in with your new credentials.", true);
+    } else {
       showToast("Profile updated");
       loadProfile();
-    } else {
-      showToast("Failed to update profile");
     }
   };
 }
