@@ -2,7 +2,7 @@
 
 A fully-featured, local-hostable remake of **The Resistance: Avalon**.
 
-This monorepo contains:
+Supports any hostname, lobby sharing on frontend uses current host.
 
 * **backend/** – A FastAPI application providing REST & WebSocket APIs, built with Tortoise-ORM and SQLite for persistence.
 * **frontend/** – A zero-build vanilla-JS single-page app (served directly by the backend) implementing the game UI.
@@ -10,19 +10,19 @@ This monorepo contains:
 
 ---
 
-## ✨ Features
+## Features
 
 * Account signup / login with hashed passwords
 * Lobby creation, join & listing with optional passwords
-* Real-time room synchronisation over WebSockets (pause/resume on disconnect)
+* Real-time room synchronisation over WebSockets (pause/resum`e on disconnect)
 * In-memory game engine modelling Avalon roles & turn logic (see `backend/game_logic.py`)
 * Persistent aggregate statistics per user stored in SQLite
 
-> **Status:** The core game loop is playable but still being polished – expect rough edges!
+> **Status:** The core game loop is playable but still being polished.
 
 ---
 
-## 🚀 Quick-start (Development)
+## Quick-start (Development)
 
 ### 1. Clone & set up a virtualenv
 
@@ -91,18 +91,3 @@ id (UUID) | username (unique) | password_hash | display_name
 ```
 
 Game & lobby state are held in-memory. If the last player leaves a running room it is pruned after 5 minutes.
-
----
-
-## 🧑‍💻 Contributing
-
-1. Fork & create a branch
-2. Follow the Quick-start steps above
-3. Run **ruff** / **black** before pushing (coming soon!)
-4. Submit a PR – feedback & ideas welcome!
-
----
-
-## 📜 License
-
-MIT – see `LICENSE`. 
