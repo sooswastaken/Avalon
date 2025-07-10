@@ -8,7 +8,7 @@ from .state import lobby_connections, rooms
 
 
 def _collect_lobby_summaries() -> List[LobbySummary]:
-    """Return *all* lobbies that are still in the *lobby* phase."""
+    """Return *all* rooms that are still in the *lobby* phase."""
     summaries: List[LobbySummary] = []
     for rid, room in rooms.items():
         if room.phase != "lobby":

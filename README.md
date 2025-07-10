@@ -17,8 +17,9 @@ Supports any hostname, lobby sharing on frontend uses current host.
 * Real-time room synchronisation over WebSockets (pause/resum`e on disconnect)
 * In-memory game engine modelling Avalon roles & turn logic (see `backend/game_logic.py`)
 * Persistent aggregate statistics per user stored in SQLite
+* Basic global leaderboard with win/lose statistics for each role.
 
-> **Status:** The core game loop is playable but still being polished.
+> **Status:** The core game loop is playable.
 
 ---
 
@@ -69,7 +70,7 @@ Authentication uses HTTP **Basic**. Send a `Authorization: Basic <base64(usernam
 
 ---
 
-## 🔌 WebSocket Endpoints
+## WebSocket Endpoints
 
 | Path | Purpose |
 | ---- | ------- |
@@ -80,7 +81,7 @@ See `backend/game_logic.py` for the message schema.
 
 ---
 
-## 🗄️ Database Schema
+## Database Schema
 
 Only one table – `users` – is currently persisted.  Fields referenced in `backend/models.py`:
 
