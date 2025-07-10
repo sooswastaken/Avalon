@@ -32,7 +32,7 @@ Supports any hostname, lobby sharing on frontend uses current host.
 $ git clone https://github.com/<your-fork>/Avalon.git
 $ cd Avalon
 
-# Python ≥3.10 recommended
+# Python ≥3.13 recommended
 $ python -m venv .venv
 $ source .venv/bin/activate
 
