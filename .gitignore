@@ -32,3 +32,4 @@ database.db-shm
 *.db-wal
 *.db
 /backend/__pycache__
+__pycache__
