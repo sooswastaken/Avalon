@@ -1,37 +1,108 @@
-# The Resistance: Avalon – Online Edition
+# Avalon Online
 
-This repository contains a minimal, **work-in-progress** implementation of Avalon that you can run locally.
+A fully-featured, local-hostable remake of **The Resistance: Avalon**.
 
----
+This monorepo contains:
 
-## Quick start (development)
-
-1. **Install Python dependencies**
-
-```bash
-python -m venv .venv
-source .venv/bin/activate
-pip install -r backend/requirements.txt
-```
-
-2. **Launch the backend & static frontend**
-
-```bash
-uvicorn backend.main:app --reload
-```
-
-The server starts on http://localhost:8000/ and serves the vanilla-JS frontend.
-
-3. **Open the game**
-
-Visit http://localhost:8000/ in two or more browser tabs/windows to simulate multiple players.
+* **backend/** – A FastAPI application providing REST & WebSocket APIs, built with Tortoise-ORM and SQLite for persistence.
+* **frontend/** – A zero-build vanilla-JS single-page app (served directly by the backend) implementing the game UI.
+* **images/** – Character portraits & textures used by the SPA.
 
 ---
 
-## Current Status
+## ✨ Features
 
-* Lobby flow with **create / join / kick / ready / start** is implemented.
-* Roles are randomly dealt at game start and delivered privately.
-* The remainder of the game loop (team proposals, voting, quests, assassination) is still TODO but the architecture (versioned state snapshots over WebSockets) is ready for extension.
+* Account signup / login with hashed passwords
+* Lobby creation, join & listing with optional passwords
+* Real-time room synchronisation over WebSockets (pause/resume on disconnect)
+* In-memory game engine modelling Avalon roles & turn logic (see `backend/game_logic.py`)
+* Persistent aggregate statistics per user stored in SQLite
 
-The backend keeps all state in-memory. If you stop the server, all rooms vanish. Persistence, authentication, and production hardening are outside the scope of this demo. 
+> **Status:** The core game loop is playable but still being polished – expect rough edges!
+
+---
+
+## 🚀 Quick-start (Development)
+
+### 1. Clone & set up a virtualenv
+
+```bash
+# Clone
+$ git clone https://github.com/<your-fork>/Avalon.git
+$ cd Avalon
+
+# Python ≥3.10 recommended
+$ python -m venv .venv
+$ source .venv/bin/activate
+
+# Install backend dependencies
+$ pip install -r backend/requirements.txt
+```
+
+### 2. Launch the backend (+ serves the SPA)
+
+```bash
+$ uvicorn backend.app:app --reload
+```
+
+The server starts on <http://localhost:8000/> – open it in **two or more** browser tabs to emulate multiple players.
+
+Tortoise-ORM auto-creates `database.db` on first run. Delete it to wipe user accounts & stats.
+
+---
+
+## 📡 REST API (selected routes)
+
+| Method | Path | Description |
+| ------ | ---- | ----------- |
+| POST   | `/signup`               | Create a new account |
+| POST   | `/login`                | Log in and receive auth token |
+| GET    | `/profile`              | Get current user profile |
+| PUT    | `/profile`              | Update username / display-name |
+| GET    | `/profile/{username}`   | Lookup another player |
+| GET    | `/leaderboard`          | Global leaderboard |
+| POST   | `/rooms`                | Create a lobby (host only) |
+| POST   | `/rooms/{roomId}/join`  | Join an existing lobby |
+| GET    | `/rooms`                | List open lobbies |
+
+Authentication uses HTTP **Basic**. Send a `Authorization: Basic <base64(username:password)>` header.
+
+---
+
+## 🔌 WebSocket Endpoints
+
+| Path | Purpose |
+| ---- | ------- |
+| `/lobbies_ws` | Push-updates when lobby list changes |
+| `/ws/{roomId}` | Bi-directional game messaging inside a room |
+
+See `backend/game_logic.py` for the message schema.
+
+---
+
+## 🗄️ Database Schema
+
+Only one table – `users` – is currently persisted.  Fields referenced in `backend/models.py`:
+
+```text
+id (UUID) | username (unique) | password_hash | display_name
+ total_games | good_wins | good_losses | evil_wins | evil_losses
+ role_stats (JSON)
+```
+
+Game & lobby state are held in-memory. If the last player leaves a running room it is pruned after 5 minutes.
+
+---
+
+## 🧑‍💻 Contributing
+
+1. Fork & create a branch
+2. Follow the Quick-start steps above
+3. Run **ruff** / **black** before pushing (coming soon!)
+4. Submit a PR – feedback & ideas welcome!
+
+---
+
+## 📜 License
+
+MIT – see `LICENSE`. 
