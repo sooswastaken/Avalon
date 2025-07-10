@@ -43,7 +43,7 @@ let pendingRoomId = null; // room to auto-join after auth
 let privateInfo = null;
 
 // --- Assassination voting helpers (must be defined before first use) --- //
-const EVIL_ROLES = ["Mordred", "Morgana", "Oberon", "Minion of Mordred", "Assassin"];
+const EVIL_ROLES = ["Mordred", "Morgana", "Oberon", "Minion of Mordred"];
 let _assassinationVoted = false; // track whether current evil player has voted in the ongoing round
 let _assassinCandidatesKey = "";
 // Lady of the Lake internal flag
@@ -518,6 +518,10 @@ function initWebSocket() {
       showToast(`${msg.target} is ${msg.loyalty.toUpperCase()}`);
       _ladyChosen = false; // reset for next holder when token passes
     }
+    else if (msg.type === "lady_inspect") {
+      // Globally announce who inspected whom using the Lady of the Lake
+      showToast(`${msg.inspector} inspected ${msg.target} with the Lady of the Lake`);
+    }
   };
 
   ws.onclose = event => {
@@ -559,6 +563,18 @@ function handleKick(msg) {
 // Global flags
 window._roleInitDone = false; // indicates new game role initialization handled on this client
 
+// ---- NEW: Assassination state helpers reset on lobby ---- //
+// Whenever we transition back to the lobby we clear any client-side assassination flags so that
+// the next game starts with a clean slate. These variables are defined above but may retain their
+// previous value across play-again flows within the same page session.
+if (!window._resetAvalonHelpers) {
+  window._resetAvalonHelpers = function () {
+    _assassinationVoted = false;
+    _assassinCandidatesKey = "";
+    _ladyChosen = false;
+  };
+}
+
 function renderState(state) {
   // Track whether the current user is the host for conditional UI controls
   window._isHost = state.host_id === userId;
@@ -566,6 +582,10 @@ function renderState(state) {
   // Reset the init flag whenever we go back to lobby (pre-game)
   if (state.phase === "lobby") {
     window._roleInitDone = false;
+    // Clear per-round helper flags so next game starts clean
+    if (typeof window._resetAvalonHelpers === "function") {
+      window._resetAvalonHelpers();
+    }
   }
   if (state.phase === "lobby") renderLobby(state);
   else renderGame(state);
@@ -696,6 +716,14 @@ function renderLobby(state) {
   setTimeout(() => {
     const finalHeight = lobbySection.scrollHeight;
     lobbySection.style.maxHeight = `${finalHeight}px`;
+
+    // NEW: After the opening animation completes, remove the max-height
+    // constraint so any further dynamic content (e.g., images loading or
+    // config changes) can expand naturally and keep the Ready button visible.
+    setTimeout(() => {
+      lobbySection.style.maxHeight = "none";
+      lobbySection.style.overflow = "visible"; // allow growth afterwards
+    }, 700); // 0.6s transition + small buffer
   }, 50);
 }
 
@@ -1039,10 +1067,16 @@ function renderPhaseAndActions(state) {
       state.players.find(p => p.user_id === userId)
     )}</p>`;
 
-  // Show list of evil players (Oberon excluded) to everyone during the assassination phase.
+  // NEW: Show current Lady of the Lake holder (if enabled and assigned)
+  if (state.config?.lady_enabled && state.lady_holder) {
+    const holderName = state.players.find(p => p.user_id === state.lady_holder)?.name || "Unknown";
+    phaseContainer.innerHTML += `<p style="font-style:italic; color: var(--color-text-secondary);">Lady of the Lake Holder: <strong>${holderName}</strong></p>`;
+  }
+
+  // Show list of evil players to everyone during the assassination phase.
   if (state.phase === "assassination" && Array.isArray(state.evil_players) && state.evil_players.length) {
     const evilList = state.evil_players.join(", ");
-    phaseContainer.innerHTML += `<p><strong>Evil Players (Excluding Oberon):</strong> ${evilList}</p>`;
+    phaseContainer.innerHTML += `<p><strong>Evil Players:</strong> ${evilList}</p>`;
   }
 
   actionsContainer.innerHTML = "";
@@ -1276,16 +1310,27 @@ function renderLadyPhase(state) {
 }
 
 function renderAssassinationPhase(state) {
-  const me = state.players.find(p => p.user_id === userId);
-
-  // Reset vote flag if candidate pool changed (new round after tie)
+  // Key that uniquely identifies the current voting round (candidate pool)
   const candidates = (state.assassin_candidates && state.assassin_candidates.length)
     ? state.assassin_candidates
     : state.players.filter(pl => !EVIL_ROLES.includes(pl.role)).map(pl => pl.user_id);
   const key = candidates.slice().sort().join(",");
+
+  // If the candidate pool has changed since the last render (new voting round)
+  // then refresh local flags so the UI correctly reflects whether the current
+  // player has already voted in *this* round.
   if (key !== _assassinCandidatesKey) {
     _assassinCandidatesKey = key;
-    _assassinationVoted = false;
+    _assassinationVoted = false; // will be recalculated below using alreadyVoted
+  }
+
+  // Reference to this client's player object for convenience
+  const me = state.players.find(p => p.user_id === userId);
+
+  // Detect whether this client already voted according to server state
+  const alreadyVoted = !!(state.assassin_votes && userId in state.assassin_votes);
+  if (alreadyVoted) {
+    _assassinationVoted = true;
   }
 
   if (state.winner) return; // game over already decided
@@ -1303,10 +1348,7 @@ function renderAssassinationPhase(state) {
     const pendingIds = state.players
       .filter(p => EVIL_ROLES.includes(p.role))
       .filter(p => !(state.assassin_votes && p.user_id in state.assassin_votes))
-      .map(p => {
-        if (p.role === "Oberon") return "Oberon";
-        return p.name;
-      });
+      .map(p => p.name);
     let html = `<p><em>Vote submitted. Waiting for other evil players...</em></p>`;
     if (pendingIds.length) {
       html += `<p><em>Still waiting on: ${pendingIds.join(", ")}</em></p>`;
@@ -1336,6 +1378,7 @@ function renderAssassinationPhase(state) {
     const target = form.querySelector("input:checked")?.value;
     if (!target) return showToast("Select a target first");
     ws.send(JSON.stringify({ type: "assassination_vote", target }));
+    console.log("vote submitted", target);
     _assassinationVoted = true;
     actionsContainer.innerHTML = `<p><em>Vote submitted. Waiting for other evil players...</em></p>`;
   };
@@ -1350,13 +1393,18 @@ function renderAssassinationPhase(state) {
   const pendingIds = state.players
     .filter(p => EVIL_ROLES.includes(p.role))
     .filter(p => !(state.assassin_votes && p.user_id in state.assassin_votes))
-    .map(p => {
-      if (p.role === "Oberon") return "Oberon";
-      return p.name;
-    });
+    .map(p => p.name);
   if (pendingIds.length) {
-    actionsContainer.innerHTML += `<p><em>Waiting on: ${pendingIds.join(", ")}</em></p>`;
+    const waitingMsg = document.createElement("p");
+    waitingMsg.innerHTML = `<em>Waiting on: ${pendingIds.join(", ")}</em>`;
+    actionsContainer.appendChild(waitingMsg);
   }
+
+  // Mark that this UI instance corresponds to the current vote round so we can
+  // preserve it until something actually changes (e.g., the player casts a vote
+  // or the candidate pool narrows after a tie).
+  actionsContainer.dataset.view = "assassination";
+  actionsContainer.dataset.candidatesKey = key;
 }
 
 function getPhaseDescription(state, me) {
@@ -1384,7 +1432,7 @@ function getPhaseDescription(state, me) {
 }
 
 createRoomBtn.onclick = showCreateRoomModal;
-joinRoomBtn.onclick = showJoinRoomModal;
+if (joinRoomBtn) joinRoomBtn.classList.add("hidden");
 
 window.addEventListener("load", async () => {
   const redirectMsg = sessionStorage.getItem("redirectMsg");
@@ -1475,7 +1523,6 @@ function showRoleModal(roleName, imgSrc) {
     Merlin: ["merlin_knows"],
     Percival: ["percival_knows"],
     Morgana: ["evil"],
-    Assassin: ["evil"],
     "Minion of Mordred": ["evil"],
     Mordred: ["evil"],
   };
@@ -1570,11 +1617,13 @@ function renderRoomList(rooms) {
     createRoomBtn.classList.remove("hidden");
     createRoomBtn.textContent = "Create Room";
     createRoomBtn.onclick = showCreateRoomModal;
-    joinRoomBtn.classList.remove("hidden");
-    joinRoomBtn.textContent = "Join Room Via ID";
+    if (joinRoomBtn) joinRoomBtn.classList.remove("hidden");
+    if (joinRoomBtn) joinRoomBtn.textContent = "Join Room Via ID";
     return;
   }
   const myRooms = rooms.filter(l => l.member);
+  const myHostRooms = myRooms.filter(r => r.host_id === userId);
+  const myOtherRooms = myRooms.filter(r => r.host_id !== userId);
   const otherRooms = rooms.filter(l => !l.member && l.phase === "lobby");
 
   function createSection(title, list) {
@@ -1612,11 +1661,12 @@ function renderRoomList(rooms) {
     container.appendChild(section);
   }
 
-  createSection("My Room", myRooms);
+  createSection("My Room", myHostRooms);
+  createSection("Disconnected from", myOtherRooms);
   createSection("Open Rooms", otherRooms);
 
-  const ownsRoom = myRooms.length > 0;
-  const ownsBusyRoom = myRooms.some(r => r.player_count > 1);
+  const ownsRoom = myHostRooms.length > 0;
+  const ownsBusyRoom = myHostRooms.some(r => r.player_count > 1);
 
   if (ownsRoom) {
     if (ownsBusyRoom) {
@@ -1624,7 +1674,7 @@ function renderRoomList(rooms) {
     } else {
       createRoomBtn.classList.remove("hidden");
       createRoomBtn.textContent = "Reconnect to your own room";
-      createRoomBtn.onclick = () => joinRoom(myRooms[0].room_id);
+      createRoomBtn.onclick = () => joinRoom(myHostRooms[0].room_id);
     }
   } else {
     createRoomBtn.classList.remove("hidden");
@@ -1632,8 +1682,9 @@ function renderRoomList(rooms) {
     createRoomBtn.onclick = showCreateRoomModal;
   }
 
-  joinRoomBtn.classList.remove("hidden");
-  joinRoomBtn.textContent = "Join Room Via ID";
+  if (joinRoomBtn) {
+    joinRoomBtn.classList.add("hidden");
+  }
 }
 
 function initRoomWebSocket() {

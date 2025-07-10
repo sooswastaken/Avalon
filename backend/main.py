@@ -40,7 +40,7 @@ class Player(BaseModel):
 
 class RoomConfig(BaseModel):
     merlin: bool = True
-    assassin: bool = True
+    # Assassin role has been removed – evil players now share a collective vote.
     mordred: bool = True
     # Enable Morgana & Percival by default; hosts can still disable them
     morgana: bool = True
@@ -83,7 +83,7 @@ class RoomState(BaseModel):
     round_leaders: List[Optional[str]] = []
     # Candidates remaining in the current assassination voting round (player IDs of GOOD team)
     assassin_candidates: List[str] = []
-    # List of player names that belong to the evil team (Oberon excluded). Populated only during the assassination phase so that all clients can see who the evil players are.
+    # List of player names that belong to the evil team. Populated only during the assassination phase so that all clients can see who the evil players are.
     evil_players: List[str] = []
     # Map of evil player user_id -> voted target user_id (only visible to clients for pending vote tracking)
     assassin_votes: Dict[str, str] = {}
@@ -205,43 +205,51 @@ class Room:
     # ---- Broadcasting ---- #
     async def broadcast_state(self):
         """Send entire room state snapshot to all connected clients."""
-        # Compute visible evil player list for assassination phase (Oberon is hidden)
+        # Compute visible evil player list for assassination phase (now includes Oberon by name)
         evil_players: List[str] = []
         if self.phase == "assassination":
             for p in self.players.values():
                 if p.role in EVIL_ROLES:
-                    if p.role == "Oberon":
-                        evil_players.append("Oberon")  # Mask actual identity
-                    else:
-                        evil_players.append(p.name)
+                    evil_players.append(p.name)
 
-        state_payload = RoomState(
-            room_id=self.room_id,
-            host_id=self.host_id,
-            players=list(self.players.values()),
-            phase=self.phase,
-            quest_history=self.quest_history,
-            current_leader=self.current_leader,
-            consecutive_rejections=self.consecutive_rejections,
-            config=self.config,
-            round_number=self.round_number,
-            good_wins=self.good_wins,
-            evil_wins=self.evil_wins,
-            subphase=self.subphase,
-            current_team=self.current_team,
-            votes=self.votes,
-            winner=self.winner,
-            submissions=self.submissions,
-            proposal_leader=self.proposal_leader,
-            round_leaders=self._compute_round_leaders(),
-            assassin_candidates=self.assassin_candidates,
-            evil_players=evil_players,
-            assassin_votes=self.assassin_votes,
-            lady_holder=self.lady_holder,
-            lady_history=self.lady_history,
-            lady_after_rounds=self.config.lady_after_rounds,
-        ).model_dump()
-        for ws in list(self.connections.values()):
+        # Personalise the state so that only the recipient sees their own role until the game is over.
+        for uid, ws in list(self.connections.items()):
+            players_view: List[Player] = []
+            for p in self.players.values():
+                # Deep-copy to avoid mutating the canonical Player objects
+                p_copy: Player = p.copy(deep=True)
+                if self.phase != "finished" and p.user_id != uid:
+                    # Hide everyone else's role while the game is still in progress
+                    p_copy.role = None
+                players_view.append(p_copy)
+
+            state_payload = RoomState(
+                room_id=self.room_id,
+                host_id=self.host_id,
+                players=players_view,
+                phase=self.phase,
+                quest_history=self.quest_history,
+                current_leader=self.current_leader,
+                consecutive_rejections=self.consecutive_rejections,
+                config=self.config,
+                round_number=self.round_number,
+                good_wins=self.good_wins,
+                evil_wins=self.evil_wins,
+                subphase=self.subphase,
+                current_team=self.current_team,
+                votes=self.votes,
+                winner=self.winner,
+                submissions=self.submissions,
+                proposal_leader=self.proposal_leader,
+                round_leaders=self._compute_round_leaders(),
+                assassin_candidates=self.assassin_candidates,
+                evil_players=evil_players,
+                assassin_votes=self.assassin_votes,
+                lady_holder=self.lady_holder,
+                lady_history=self.lady_history,
+                lady_after_rounds=self.config.lady_after_rounds,
+            ).model_dump()
+
             await ws.send_json({"type": "state", "data": state_payload})
 
     async def broadcast(self, payload: dict):
@@ -1311,6 +1319,13 @@ async def handle_lady_choose(room: Room, user_id: str, data: dict):
             "type": "lady_result",
             "target": room.players[target_id].name,
             "loyalty": loyalty,
+        })
+
+        # NEW: Announce the inspection to everyone (without revealing loyalty)
+        await room.broadcast({
+            "type": "lady_inspect",
+            "inspector": room.players[user_id].name,
+            "target": room.players[target_id].name,
         })
 
     # Transfer token
