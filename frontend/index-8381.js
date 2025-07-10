@@ -1310,101 +1310,77 @@ function renderLadyPhase(state) {
 }
 
 function renderAssassinationPhase(state) {
-  // Key that uniquely identifies the current voting round (candidate pool)
-  const candidates = (state.assassin_candidates && state.assassin_candidates.length)
-    ? state.assassin_candidates
-    : state.players.filter(pl => !EVIL_ROLES.includes(pl.role)).map(pl => pl.user_id);
-  const key = candidates.slice().sort().join(",");
-
-  // If the candidate pool has changed since the last render (new voting round)
-  // then refresh local flags so the UI correctly reflects whether the current
-  // player has already voted in *this* round.
-  if (key !== _assassinCandidatesKey) {
-    _assassinCandidatesKey = key;
-    _assassinationVoted = false; // will be recalculated below using alreadyVoted
-  }
-
-  // Reference to this client's player object for convenience
   const me = state.players.find(p => p.user_id === userId);
 
-  // Detect whether this client already voted according to server state
-  const alreadyVoted = !!(state.assassin_votes && userId in state.assassin_votes);
-  if (alreadyVoted) {
-    _assassinationVoted = true;
-  }
+  // Gather evil players and determine who still needs to vote
+  const evilPlayers = state.players.filter(p => EVIL_ROLES.includes(p.role));
+  const pendingNames = evilPlayers
+    .filter(p => !(state.assassin_votes && p.user_id in state.assassin_votes))
+    .map(p => p.name);
 
-  if (state.winner) return; // game over already decided
-
+  // ----------------------
+  // View for GOOD players
+  // ----------------------
   if (!EVIL_ROLES.includes(me.role)) {
-    // Good players just wait
-    actionsContainer.classList.add("hidden");
+    actionsContainer.classList.remove("hidden");
+    actionsContainer.innerHTML = pendingNames.length
+      ? `<p><em>Waiting on: ${pendingNames.join(", ")}</em></p>`
+      : `<p><em>Waiting for evil players...</em></p>`;
     return;
   }
 
+  // ----------------------
+  // View for EVIL players
+  // ----------------------
+  const alreadyVoted = state.assassin_votes && userId in state.assassin_votes;
   actionsContainer.classList.remove("hidden");
 
-  if (_assassinationVoted) {
-    // Show pending list even after my vote
-    const pendingIds = state.players
-      .filter(p => EVIL_ROLES.includes(p.role))
-      .filter(p => !(state.assassin_votes && p.user_id in state.assassin_votes))
-      .map(p => p.name);
-    let html = `<p><em>Vote submitted. Waiting for other evil players...</em></p>`;
-    if (pendingIds.length) {
-      html += `<p><em>Still waiting on: ${pendingIds.join(", ")}</em></p>`;
-    }
-    actionsContainer.innerHTML = html;
-    return;
-  }
+  if (alreadyVoted) {
+    actionsContainer.innerHTML = `<p><em>Vote submitted. Waiting for other evil players...</em></p>`;
+  } else {
+    // Build the list of current Merlin candidates
+    const candidates = (state.assassin_candidates && state.assassin_candidates.length)
+      ? state.assassin_candidates
+      : state.players
+          .filter(p => !EVIL_ROLES.includes(p.role))
+          .map(p => p.user_id);
 
-  // Build voting UI
-  const form = document.createElement("form");
-  form.className = "player-selection-form";
-  form.innerHTML = candidates
-    .map(pid => {
-      const playerName = state.players.find(p => p.user_id === pid).name;
-      return `
+    const form = document.createElement("form");
+    form.className = "player-selection-form";
+    form.innerHTML = candidates
+      .map(pid => {
+        const playerName = state.players.find(p => p.user_id === pid).name;
+        return `
         <label>
           <input type="radio" value="${pid}" name="merlin-target">
           <span class="player-option">${playerName}</span>
         </label>`;
-    })
-    .join("");
+      })
+      .join("");
 
-  const voteBtn = document.createElement("button");
-  voteBtn.textContent = "Vote";
-  voteBtn.className = "btn btn-danger";
-  voteBtn.onclick = () => {
-    const target = form.querySelector("input:checked")?.value;
-    if (!target) return showToast("Select a target first");
-    ws.send(JSON.stringify({ type: "assassination_vote", target }));
-    console.log("vote submitted", target);
-    _assassinationVoted = true;
-    actionsContainer.innerHTML = `<p><em>Vote submitted. Waiting for other evil players...</em></p>`;
-  };
+    const voteBtn = document.createElement("button");
+    voteBtn.textContent = "Vote";
+    voteBtn.className = "btn btn-danger";
+    voteBtn.onclick = () => {
+      const target = form.querySelector("input:checked")?.value;
+      if (!target) return showToast("Select a target first");
+      ws.send(JSON.stringify({ type: "assassination_vote", target }));
+      // UI will refresh with updated state from the server
+    };
 
-  actionsContainer.innerHTML = `
-    <h2>Decide Merlin's Fate</h2>
-    <p>Select the player you believe is <strong>Merlin</strong>.</p>
-  `;
-  actionsContainer.append(form, voteBtn);
-
-  // Pending list (at initial render before my vote)
-  const pendingIds = state.players
-    .filter(p => EVIL_ROLES.includes(p.role))
-    .filter(p => !(state.assassin_votes && p.user_id in state.assassin_votes))
-    .map(p => p.name);
-  if (pendingIds.length) {
-    const waitingMsg = document.createElement("p");
-    waitingMsg.innerHTML = `<em>Waiting on: ${pendingIds.join(", ")}</em>`;
-    actionsContainer.appendChild(waitingMsg);
+    actionsContainer.innerHTML = `
+      <h2>Decide Merlin's Fate</h2>
+      <p>Select the player you believe is <strong>Merlin</strong>.</p>
+    `;
+    actionsContainer.append(form, voteBtn);
   }
 
-  // Mark that this UI instance corresponds to the current vote round so we can
-  // preserve it until something actually changes (e.g., the player casts a vote
-  // or the candidate pool narrows after a tie).
-  actionsContainer.dataset.view = "assassination";
-  actionsContainer.dataset.candidatesKey = key;
+  // Standard "waiting on" list (same pattern as other phases)
+  if (pendingNames.length) {
+    const waitingMsg = document.createElement("p");
+    waitingMsg.innerHTML = `<em>Waiting on: ${pendingNames.join(", ")}</em>`;
+    actionsContainer.appendChild(waitingMsg);
+  }
 }
 
 function getPhaseDescription(state, me) {
