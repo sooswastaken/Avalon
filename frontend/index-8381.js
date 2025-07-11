@@ -1,6 +1,20 @@
 /* global localStorage, location, fetch, WebSocket, btoa, history, alert, prompt, QRCode, sessionStorage, navigator */
 
-const API_BASE = ""; // same origin
+// same origin
+const API_HOST = window.location.host; // includes port if present
+// Add centralized API helpers
+const API_PROTOCOL = location.protocol;
+const API_BASE_URL = `${API_PROTOCOL}//${API_HOST}`;
+const WS_PROTOCOL = API_PROTOCOL === "https:" ? "wss" : "ws";
+/**
+ * Wrapper around fetch that prefixes API_HOST to relative paths.
+ * @param {string} path Path beginning with '/'
+ * @param {RequestInit} options fetch options
+ */
+function apiFetch(path, options) {
+  const url = path.startsWith("/") ? `${API_BASE_URL}${path}` : path;
+  return fetch(url, options);
+}
 
 let roomId = null;
 let userId = null;
@@ -61,7 +75,7 @@ const QUEST_SIZES = {
 
 // ---- Load static game details (objectives, full role descriptions) ---- //
 let GAME_DETAILS = null;
-fetch("/game-details.json")
+apiFetch("/game-details.json")
   .then(r => r.ok ? r.json() : null)
   .then(data => {
     GAME_DETAILS = data;
@@ -103,7 +117,7 @@ navWiki.onclick = () => {
 
 function loadLeaderboard() {
   leaderboardSection.innerHTML = "<h2>Leaderboard</h2><p>Loading...</p>";
-  fetch(`/leaderboard`, { headers: { Authorization: `Basic ${authToken}` } })
+  apiFetch(`/leaderboard`, { headers: { Authorization: `Basic ${authToken}` } })
     .then(r => (r.ok ? r.json() : null))
     .then(data => {
       if (!data) return (leaderboardSection.innerHTML = "<p>Failed to load.</p>");
@@ -132,7 +146,7 @@ function renderLeaderboard(entries) {
         return;
       }
       btn.textContent = "Loading...";
-      const res = await fetch(`/profile/${uname}`, {
+      const res = await apiFetch(`/profile/${uname}`, {
         headers: { Authorization: `Basic ${authToken}` },
       });
       if (!res.ok) {
@@ -157,7 +171,7 @@ function renderLeaderboard(entries) {
 
 function loadProfile() {
   profileSection.innerHTML = "<h2>Your Profile</h2><p>Loading...</p>";
-  fetch(`/profile`, { headers: { Authorization: `Basic ${authToken}` } })
+  apiFetch(`/profile`, { headers: { Authorization: `Basic ${authToken}` } })
     .then(r => (r.ok ? r.json() : null))
     .then(data => {
       if (!data) return (profileSection.innerHTML = "<p>Failed to load profile.</p>");
@@ -196,7 +210,7 @@ function renderProfile(p) {
       return showToast("No changes to save");
     }
 
-    const res = await fetch(`/profile`, {
+    const res = await apiFetch(`/profile`, {
       method: "PUT",
       headers: {
         "Content-Type": "application/json",
@@ -252,7 +266,7 @@ async function handleLogin() {
   const password = loginPassword.value;
   if (!username || !password) return showToast("Please enter credentials");
   try {
-    const res = await fetch(`/login`, {
+    const res = await apiFetch(`/login`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ username, password }),
@@ -287,7 +301,7 @@ async function handleSignup() {
   if (!username || !password || !display_name)
     return showToast("Please fill all fields");
   try {
-    const res = await fetch(`/signup`, {
+    const res = await apiFetch(`/signup`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ username, password, display_name }),
@@ -393,7 +407,7 @@ async function createRoom(password = null) {
   `;
 
   try {
-    const res = await fetch(`/rooms`, {
+    const res = await apiFetch(`/rooms`, {
       method: "POST",
       headers: {
         Authorization: `Basic ${authToken}`,
@@ -443,7 +457,7 @@ async function joinRoom(id, password = null) {
   `;
 
   try {
-    const res = await fetch(`/rooms/${id}/join`, {
+    const res = await apiFetch(`/rooms/${id}/join`, {
       method: "POST",
       headers: {
         Authorization: `Basic ${authToken}`,
@@ -489,7 +503,7 @@ async function joinRoom(id, password = null) {
 }
 
 function initWebSocket() {
-  const wsUrl = `${location.protocol === "https:" ? "wss" : "ws"}://${location.host}/ws/${roomId}?auth=${encodeURIComponent(authToken)}`;
+  const wsUrl = `${WS_PROTOCOL}://${API_HOST}/ws/${roomId}?auth=${encodeURIComponent(authToken)}`;
   ws = new WebSocket(wsUrl);
 
   ws.onmessage = event => {
@@ -1424,7 +1438,7 @@ window.addEventListener("load", async () => {
   let credsValid = false;
   if (authToken && userId) {
     try {
-      const res = await fetch(`/profile`, { headers: { Authorization: `Basic ${authToken}` } });
+      const res = await apiFetch(`/profile`, { headers: { Authorization: `Basic ${authToken}` } });
       if (res.ok) {
         const prof = await res.json();
         userId = prof.user_id;
@@ -1573,7 +1587,7 @@ async function loadRoomList() {
   try {
     const headers = {};
     if (authToken) headers["Authorization"] = `Basic ${authToken}`;
-    const res = await fetch(`/rooms`, { headers });
+    const res = await apiFetch(`/rooms`, { headers });
     if (!res.ok) {
       container.innerHTML = `<p>Failed to load rooms.</p>`;
       return;
@@ -1665,7 +1679,7 @@ function renderRoomList(rooms) {
 
 function initRoomWebSocket() {
   if (roomWs && roomWs.readyState !== WebSocket.CLOSED) return;
-  const wsUrl = `${location.protocol === "https:" ? "wss" : "ws"}://${location.host}/lobbies_ws${authToken ? `?auth=${encodeURIComponent(authToken)}` : ""}`;
+  const wsUrl = `${WS_PROTOCOL}://${API_HOST}/lobbies_ws${authToken ? `?auth=${encodeURIComponent(authToken)}` : ""}`;
   roomWs = new WebSocket(wsUrl);
   roomWs.onmessage = event => {
     try {
