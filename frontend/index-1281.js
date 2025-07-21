@@ -1733,7 +1733,11 @@ function handlePause(msg) {
     if (window._isHost) {
       html += `<button class="btn btn-danger" id="pauseResetBtn" style="margin-top:1rem;">Return to Lobby</button>`;
     }
+    // NEW: Always provide a way to exit back to the home/landing screen
+    html += `<button class="btn" id="pauseHomeBtn" style="margin-top:1rem;">Home</button>`;
+
     pauseModalContent.innerHTML = html;
+
     if (window._isHost) {
       document.getElementById("pauseResetBtn").onclick = () => {
         if (confirm("Reset the game and return to lobby?")) {
@@ -1743,6 +1747,21 @@ function handlePause(msg) {
         }
       };
     }
+
+    // Attach handler for the new Home button (for ALL players)
+    document.getElementById("pauseHomeBtn").onclick = () => {
+      if (confirm("Leave the current game and return to the home screen?")) {
+        try {
+          // Clean up any lingering room/session data
+          localStorage.removeItem("roomId");
+          if (ws && ws.readyState === WebSocket.OPEN) {
+            ws.close(1000, "User left via Home button");
+          }
+        } catch (_) { /* ignore */ }
+        redirectHomeWithMessage("Returned to home screen.", false);
+      }
+    };
+
     pauseModal.classList.remove("hidden");
   } else {
     pauseModal.classList.add("hidden");

@@ -450,6 +450,11 @@ async def start_game(room: Room):
     random.shuffle(shuffled_players)
     for player, role in zip(shuffled_players, roles):
         player.role = role
+
+    # Reorder the room.players dict to match the newly shuffled order so that
+    # turn rotation (leader clockwise) and Lady-of-the-Lake progression are
+    # randomised every time the game starts (even after resetting/restarting).
+    room.players = {p.user_id: p for p in shuffled_players}
     await distribute_initial_info(room)
     room.current_leader = shuffled_players[0].user_id
     if room.config.lady_enabled:
