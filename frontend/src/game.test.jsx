@@ -5,6 +5,7 @@ import userEvent from "@testing-library/user-event";
 import { PhaseActions } from "./Game.jsx";
 import Wiki from "./Wiki.jsx";
 import Lobby from "./Lobby.jsx";
+import { Rooms } from "./components.jsx";
 vi.mock("qrcode", () => ({
   default: { toDataURL: () => Promise.resolve("data:image/png;base64,test") },
 }));
@@ -152,4 +153,59 @@ it("preserves multiple wiki query expansions and click toggles", async () => {
   ).toBe("true");
   await user.click(morgana);
   expect(morgana.getAttribute("aria-expanded")).toBe("false");
+});
+
+it("keeps lobby actions available while switching setup and opens invitations on demand", async () => {
+  const user = userEvent.setup(),
+    send = vi.fn();
+  render(<Lobby state={base} userId="0" send={send} notify={vi.fn()} />);
+  expect(
+    screen.queryByRole("img", { name: "Room invitation QR code" }),
+  ).toBeNull();
+  const playersTab = screen.getByRole("tab", { name: /Players/ });
+  playersTab.focus();
+  await user.keyboard("{ArrowRight}");
+  expect(
+    screen
+      .getByRole("tab", { name: "Game setup" })
+      .getAttribute("aria-selected"),
+  ).toBe("true");
+  await user.click(screen.getByRole("button", { name: "Oberon" }));
+  expect(send).not.toHaveBeenCalled();
+  await user.click(screen.getByRole("button", { name: "Morgana & Percival" }));
+  expect(send).toHaveBeenCalledWith(
+    expect.objectContaining({
+      type: "set_config",
+      morgana: false,
+      percival: false,
+    }),
+  );
+  expect(screen.getByRole("button", { name: "Start Game" }).disabled).toBe(
+    false,
+  );
+  await user.click(screen.getByRole("button", { name: "Invite" }));
+  expect(screen.getByRole("dialog", { name: "Invite Players" })).toBeTruthy();
+  await user.click(screen.getByRole("button", { name: "Close" }));
+  expect(screen.queryByRole("dialog")).toBeNull();
+});
+
+it("pages room choices while keeping the create action available", async () => {
+  const user = userEvent.setup(),
+    onJoin = vi.fn();
+  const rooms = Array.from({ length: 7 }, (_, i) => ({
+    room_id: String(i),
+    host_name: `Host ${i}`,
+    player_count: 1,
+    phase: "lobby",
+  }));
+  render(
+    <Rooms rooms={rooms} userId="me" onJoin={onJoin} onCreate={vi.fn()} />,
+  );
+  expect(screen.getAllByRole("button", { name: "Enter" })).toHaveLength(3);
+  await user.click(screen.getByRole("button", { name: "Next" }));
+  await user.click(screen.getAllByRole("button", { name: "Enter" })[0]);
+  expect(onJoin).toHaveBeenCalledWith(
+    expect.objectContaining({ room_id: "3" }),
+  );
+  expect(screen.getByRole("button", { name: "Create Room" })).toBeTruthy();
 });

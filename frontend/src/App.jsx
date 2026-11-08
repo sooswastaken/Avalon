@@ -250,7 +250,7 @@ export default function App() {
   const disabled = status !== "connected" || pause.length > 0;
   return (
     <>
-      <header>
+      <header className="app-header">
         <h1>Avalon Online</h1>
       </header>
       <nav id="navbar">
@@ -292,7 +292,7 @@ export default function App() {
           )}
         </div>
       </nav>
-      <main>
+      <main className="app-main">
         {!ready ? (
           <section className="card">Restoring session…</section>
         ) : !session ? (

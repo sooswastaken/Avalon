@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { EVIL_ROLES, QUEST_SIZES, roleImage } from "./api.js";
-import { Button, Modal } from "./components.jsx";
+import { Button, Modal, PagedList } from "./components.jsx";
 import { useResource } from "./hooks.js";
 export function QuestResult({ record }) {
   const votes = Object.entries(record.votes || {});
@@ -68,7 +68,8 @@ function RoleDialog({ role, info, onClose }) {
             ),
         )}
         {details && (
-          <>
+          <details className="role-guide">
+            <summary>Role guide</summary>
             {[
               ["Team", details.team],
               [
@@ -84,7 +85,7 @@ function RoleDialog({ role, info, onClose }) {
                 <p>{text}</p>
               </div>
             ))}
-          </>
+          </details>
         )}
       </div>
       <Button onClick={() => setRevealed(!revealed)}>
@@ -142,7 +143,9 @@ export function PhaseActions({ state, userId, send, disabled }) {
     return (
       <>
         <h2>Propose a Team</h2>
-        <p>Select {required} players for the quest.</p>
+        <p>
+          Select {required} players · {selected.length}/{required} selected
+        </p>
         {choose(state.players, true, required)}
         <Button
           tone="success"
@@ -331,7 +334,6 @@ export default function Game({
               key={round}
             >
               <h4>Quest {round}</h4>
-              <p>Leader: {state.round_leaders[round - 1] || "TBD"}</p>
               <button
                 type="button"
                 className={`quest-circle ${record ? (record.success ? "success" : "fail") : state.round_number === round ? "current" : ""}`}
@@ -348,34 +350,30 @@ export default function Game({
                     : "Fail"
                   : QUEST_SIZES[state.players.length]?.[round - 1]}
               </button>
-              {expanded === round && (
-                <p>
-                  {state.current_team
-                    .map(
-                      (id) =>
-                        state.players.find((player) => player.user_id === id)
-                          ?.name,
-                    )
-                    .join(", ") || "Team not selected"}
-                </p>
-              )}
+              <small>
+                {record ? (record.success ? "Passed" : "Failed") : "players"}
+              </small>
             </div>
           );
         })}
       </div>
       {state.phase === "finished" ? (
-        <div className="card centered">
+        <div className="card centered game-result">
           <h2>Game Over!</h2>
           <p>The {state.winner === "good" ? "Good" : "Evil"} Team Wins!</p>
           <div className="roles-grid">
-            {state.players.map((player) => (
-              <div className="card" key={player.user_id}>
-                <strong>{player.name}</strong>
-                <img src={roleImage(player.role)} alt={player.role} />
-                <p>{player.role}</p>
-                <span className="wins-badge">🏆 {player.wins}</span>
-              </div>
-            ))}
+            <PagedList
+              items={state.players}
+              pageSize={4}
+              renderItem={(player) => (
+                <div className="card" key={player.user_id}>
+                  <strong>{player.name}</strong>
+                  <img src={roleImage(player.role)} alt={player.role} />
+                  <p>{player.role}</p>
+                  <span className="wins-badge">🏆 {player.wins}</span>
+                </div>
+              )}
+            />
           </div>
           {state.host_id === userId && (
             <Button
@@ -402,7 +400,7 @@ export default function Game({
               </p>
             )}
           </div>
-          <div className="card">
+          <div className="card phase-actions">
             <PhaseActions
               key={`${state.round_number}:${state.subphase}:${state.current_leader}:${state.consecutive_rejections}:${state.assassin_candidates.join(",")}`}
               state={state}
@@ -413,7 +411,7 @@ export default function Game({
           </div>
         </>
       )}
-      <div className="centered">
+      <div className="centered game-tools">
         <Button onClick={() => setRoleOpen(true)}>View Your Role</Button>
         {state.host_id === userId && (
           <Button tone="danger" disabled={disabled} onClick={reset}>
@@ -421,6 +419,28 @@ export default function Game({
           </Button>
         )}
       </div>
+      {expanded !== null && (
+        <Modal title={`Quest ${expanded}`} onClose={() => setExpanded(null)}>
+          <p>Leader: {state.round_leaders[expanded - 1] || "To be decided"}</p>
+          <p>
+            {QUEST_SIZES[state.players.length]?.[expanded - 1]} players required
+          </p>
+          {expanded === state.round_number && (
+            <p>
+              Team:{" "}
+              {state.current_team
+                .map(
+                  (id) =>
+                    state.players.find((player) => player.user_id === id)?.name,
+                )
+                .join(", ") || "Not selected"}
+            </p>
+          )}
+          {state.players.length >= 7 && expanded === 4 && (
+            <p>Two Fail cards required to fail.</p>
+          )}
+        </Modal>
+      )}
       {roleOpen && !modalBlocked && me?.role && (
         <RoleDialog
           role={me.role}

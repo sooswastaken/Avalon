@@ -129,7 +129,7 @@ export function Auth({ onLogin, notify }) {
     }
   }
   return (
-    <section className="card centered">
+    <section className="card centered auth-card">
       <h2>Welcome to Avalon</h2>
       <Button onClick={() => setSignup(false)}>Login</Button>
       <Button onClick={() => setSignup(true)}>Sign Up</Button>
@@ -176,6 +176,7 @@ export function Profile({ session, notify, onLogout }) {
 }
 function ProfileForm({ profile, session, notify, onLogout }) {
   const [data, setData] = useState(profile);
+  const [tab, setTab] = useState("profile");
   const [username, setUsername] = useState(profile.username),
     [display, setDisplay] = useState(profile.display_name),
     [busy, setBusy] = useState(false);
@@ -206,43 +207,56 @@ function ProfileForm({ profile, session, notify, onLogout }) {
     }
   }
   return (
-    <section className="card centered">
+    <section className="card centered profile-card">
       <h2>Your Profile</h2>
-
-      <form className="narrow" onSubmit={save}>
-        <label>
-          Username
-          <input
-            value={username}
-            onChange={(e) => setUsername(e.target.value)}
-            required
-          />
-        </label>
-        <label>
-          Display Name
-          <input
-            value={display}
-            onChange={(e) => setDisplay(e.target.value)}
-            required
-          />
-        </label>
-        <button className="btn" disabled={busy}>
-          Save
-        </button>
-      </form>
-
-      <p>Total Games: {data.total_games}</p>
-      <p className="wins-badge">
-        🏆 {data.good_wins + data.evil_wins} ({data.good_wins} Good,{" "}
-        {data.evil_wins} Evil wins)
-      </p>
-      <RoleStats stats={data.role_stats} />
+      <div className="profile-tabs">
+        <Button
+          aria-pressed={tab === "profile"}
+          onClick={() => setTab("profile")}
+        >
+          Edit Profile
+        </Button>
+        <Button aria-pressed={tab === "stats"} onClick={() => setTab("stats")}>
+          Game Stats
+        </Button>
+      </div>
+      <div className="profile-panel" hidden={tab !== "profile"}>
+        <form className="narrow" onSubmit={save}>
+          <label>
+            Username
+            <input
+              value={username}
+              onChange={(e) => setUsername(e.target.value)}
+              required
+            />
+          </label>
+          <label>
+            Display Name
+            <input
+              value={display}
+              onChange={(e) => setDisplay(e.target.value)}
+              required
+            />
+          </label>
+          <button className="btn" disabled={busy}>
+            Save
+          </button>
+        </form>
+      </div>
+      <div className="profile-panel" hidden={tab !== "stats"}>
+        <p>Total Games: {data.total_games}</p>
+        <p className="wins-badge">
+          🏆 {data.good_wins + data.evil_wins} ({data.good_wins} Good,{" "}
+          {data.evil_wins} Evil wins)
+        </p>
+        <RoleStats stats={data.role_stats} />
+      </div>
     </section>
   );
 }
 function RoleStats({ stats }) {
   return (
-    <div>
+    <div className="role-stats">
       {Object.entries(stats || {}).map(([role, value]) => (
         <p key={role}>
           {role}: {value.wins}W/{value.losses}L
@@ -257,17 +271,22 @@ export function Leaderboard({ session }) {
     <section className="card">
       <h2>Top Players</h2>
       {error ||
-        (!data
-          ? "Loading…"
-          : data.length
-            ? data.map((entry) => (
-                <LeaderboardEntry
-                  key={entry.user_id}
-                  entry={entry}
-                  token={session.token}
-                />
-              ))
-            : "No players yet.")}
+        (!data ? (
+          "Loading…"
+        ) : data.length ? (
+          <PagedList
+            items={data}
+            renderItem={(entry) => (
+              <LeaderboardEntry
+                key={entry.user_id}
+                entry={entry}
+                token={session.token}
+              />
+            )}
+          />
+        ) : (
+          "No players yet."
+        ))}
     </section>
   );
 }
@@ -282,7 +301,14 @@ function LeaderboardEntry({ entry, token }) {
       <Button onClick={() => setExpanded(!expanded)}>
         {expanded ? "Hide" : "Details"}
       </Button>
-      {expanded && <PlayerDetails username={entry.username} token={token} />}
+      {expanded && (
+        <Modal
+          title={`${entry.display_name} · Stats`}
+          onClose={() => setExpanded(false)}
+        >
+          <PlayerDetails username={entry.username} token={token} />
+        </Modal>
+      )}
     </div>
   );
 }
@@ -318,32 +344,32 @@ export function Rooms({ rooms, userId, onJoin, onCreate, loading, error }) {
     ],
   ];
   return (
-    <section className="card centered">
+    <section className="card centered rooms-card">
       <h2>Avalon Online</h2>
       <p>Gather your allies. Unmask the traitors.</p>
       {error && <p role="alert">{error}</p>}
       {loading && <p>Loading rooms…</p>}
       {!loading && !rooms.length && <p>No active rooms at the moment.</p>}
-      {groups.map(
-        ([title, list]) =>
-          list.length > 0 && (
-            <div key={title}>
-              <h3>{title}</h3>
-              {list.map((room) => (
-                <div className="room-row" key={room.room_id}>
-                  <span>
-                    {room.host_name} ({room.player_count}{" "}
-                    {room.player_count === 1 ? "player" : "players"})
-                    {room.requires_password && " 🔒"}
-                  </span>
-                  <Button onClick={() => onJoin(room)}>
-                    {room.member ? "Reconnect" : "Enter"}
-                  </Button>
-                </div>
-              ))}
+      <div className="room-list">
+        <PagedList
+          items={groups.flatMap(([title, list]) =>
+            list.map((room) => ({ ...room, group: title })),
+          )}
+          renderItem={(room) => (
+            <div className="room-row" key={room.room_id}>
+              <span>
+                <small className="room-group">{room.group}</small>
+                {room.host_name} ({room.player_count}{" "}
+                {room.player_count === 1 ? "player" : "players"})
+                {room.requires_password && " 🔒"}
+              </span>
+              <Button onClick={() => onJoin(room)}>
+                {room.member ? "Reconnect" : "Enter"}
+              </Button>
             </div>
-          ),
-      )}
+          )}
+        />
+      </div>
       {!owned.length ? (
         <Button onClick={onCreate}>Create Room</Button>
       ) : (
@@ -354,5 +380,34 @@ export function Rooms({ rooms, userId, onJoin, onCreate, loading, error }) {
         )
       )}
     </section>
+  );
+}
+
+export function PagedList({ items, renderItem, pageSize = 3 }) {
+  const [page, setPage] = useState(0);
+  const pages = Math.ceil(items.length / pageSize);
+  const current = Math.min(page, Math.max(0, pages - 1));
+  return (
+    <>
+      {items
+        .slice(current * pageSize, current * pageSize + pageSize)
+        .map(renderItem)}
+      {pages > 1 && (
+        <div className="pagination" aria-label="Pagination">
+          <Button disabled={current === 0} onClick={() => setPage(current - 1)}>
+            Previous
+          </Button>
+          <span aria-live="polite">
+            {current + 1} / {pages}
+          </span>
+          <Button
+            disabled={current === pages - 1}
+            onClick={() => setPage(current + 1)}
+          >
+            Next
+          </Button>
+        </div>
+      )}
+    </>
   );
 }

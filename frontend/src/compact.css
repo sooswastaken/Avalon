@@ -1,0 +1,695 @@
+/* Component sizing follows the available viewport; the wiki keeps its reading layout. */
+body:has(.app-header) {
+  padding: max(8px, env(safe-area-inset-top))
+    max(10px, env(safe-area-inset-right)) max(8px, env(safe-area-inset-bottom))
+    max(10px, env(safe-area-inset-left));
+  min-height: 100svh;
+}
+.app-header {
+  margin: 0 0 6px;
+}
+.app-header h1 {
+  font-size: clamp(1.35rem, 4vw, 2rem);
+  margin: 0;
+}
+.app-header + #navbar {
+  flex-direction: row;
+  gap: 4px;
+  margin-bottom: 8px;
+}
+.app-header + #navbar .nav-links {
+  flex-wrap: nowrap;
+  gap: 2px;
+}
+.app-header + #navbar a {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 44px;
+  padding: 6px 10px;
+  margin: 0;
+  font-size: 1rem;
+}
+.app-main {
+  padding: 0;
+}
+.app-main .card {
+  padding: 16px;
+  margin: 0;
+  animation: none;
+}
+.app-main .card:hover,
+.modal-content.card:hover {
+  transform: none;
+}
+.app-main h2,
+.modal-content h2 {
+  font-size: 1.3rem;
+  padding-bottom: 8px;
+  margin-bottom: 10px;
+}
+.app-main h3,
+.app-main h4 {
+  margin-bottom: 8px;
+}
+.app-main p {
+  margin: 8px 0;
+}
+.app-main .btn,
+.modal-content .btn {
+  min-height: 44px;
+  padding: 8px 12px;
+  margin: 3px;
+  font-size: 0.9rem;
+}
+.app-main input:not([type="radio"]):not([type="checkbox"]) {
+  width: 100%;
+  min-height: 44px;
+  padding: 8px 12px;
+  margin: 4px 0 10px;
+  font: inherit;
+  font-size: 16px;
+  color: var(--color-text-primary);
+  background: var(--color-bg-dark);
+  border: 1px solid var(--color-border);
+  border-radius: 4px;
+}
+.app-main label {
+  text-align: left;
+}
+.app-main .header-row {
+  flex-direction: row;
+  flex-wrap: nowrap;
+  margin-bottom: 8px;
+  padding-bottom: 8px;
+  gap: 8px;
+}
+.app-main .header-row h2 {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  border: 0;
+  margin: 0;
+  padding: 0;
+  min-width: 0;
+}
+.app-main #roomIdDisplay.populated {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-size: 1rem;
+  padding: 4px 6px;
+}
+.header-row > .btn {
+  flex-shrink: 0;
+}
+.lobby-tabs {
+  display: flex;
+  gap: 4px;
+  margin-bottom: 10px;
+}
+.lobby-tabs [role="tab"] {
+  flex: 1;
+  min-height: 44px;
+  padding: 6px;
+  border: 1px solid var(--color-border);
+  border-radius: 4px;
+  background: var(--color-bg-dark);
+  color: var(--color-text-primary);
+  font: inherit;
+  cursor: pointer;
+}
+.lobby-tabs [aria-selected="true"] {
+  background: var(--color-accent-primary);
+  color: var(--color-text-dark);
+  font-weight: 700;
+}
+.lobby-tabs .btn {
+  margin: 0;
+}
+.app-main .player-list {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+  margin: 0;
+}
+.app-main .player-list li {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 2px 4px;
+  padding: 6px 8px;
+  background: var(--color-bg-dark);
+  border: 1px solid var(--color-border);
+  min-height: 52px;
+}
+.app-main .player-name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  line-height: 1.15;
+  font-size: 1rem;
+}
+.app-main .player-name .wins-badge {
+  display: inline;
+  margin: 0 0 0 3px;
+  font-size: 0.7rem;
+}
+.app-main .status-indicator {
+  grid-column: 1;
+  padding: 0;
+  background: none;
+  border: 0;
+  border-radius: 0;
+  font-size: 0.8rem;
+  gap: 5px;
+}
+.app-main .status-dot {
+  height: 6px;
+  width: 6px;
+  box-shadow: none;
+}
+.app-main .player-list li .btn {
+  grid-column: 2;
+  grid-row: 1 / 3;
+  padding: 4px 6px;
+  margin: 0;
+  align-self: center;
+  font-size: 0.75rem;
+}
+.lobby-summary {
+  color: var(--color-text-secondary);
+  text-align: center;
+  font-size: 0.9rem;
+}
+.lobby-actions {
+  border-top: 1px solid var(--color-border);
+  padding-top: 6px;
+  margin-top: 8px;
+}
+.lobby-actions p {
+  font-size: 0.9rem;
+}
+.app-main .config-options-container {
+  border: 0;
+  margin: 0;
+  padding: 0;
+}
+.app-main .config-header {
+  margin-bottom: 8px;
+  text-align: left;
+}
+.config-header p {
+  font-size: 0.85rem;
+  color: var(--color-text-secondary);
+}
+.app-main .config-body {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 6px;
+}
+.app-main .config-option-card,
+.app-main .config-option-card.dual {
+  width: 100%;
+  height: 58px;
+  border-width: 1px;
+}
+.app-main .role-toggle {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding-right: 44px;
+  text-align: left;
+}
+.app-main .role-toggle > span:first-child {
+  display: flex;
+  width: 64px;
+  height: 56px;
+  flex-shrink: 0;
+}
+.app-main .role-toggle img {
+  width: 100%;
+  object-position: center 25%;
+}
+.app-main .dual-img-wrapper img {
+  width: 50%;
+}
+.app-main .role-option-name {
+  font-size: 1rem;
+}
+.role-option-name small {
+  display: block;
+  color: var(--color-text-secondary);
+  font-size: 0.8rem;
+}
+.app-main .config-option-card .overlay-icon {
+  width: 22px;
+  height: 22px;
+  left: 32px;
+}
+.app-main .config-option-card .info-icon {
+  top: 6px;
+  right: 0;
+  width: 44px;
+  height: 44px;
+  background: none;
+  box-shadow: none;
+}
+.app-main .lady-quest-selector-container {
+  margin-top: 8px;
+  padding: 8px;
+}
+.app-main .lady-quest-selector-container p {
+  margin: 0 0 6px;
+  font-size: 0.85rem;
+}
+.app-main .lady-quest-selector {
+  gap: 6px;
+}
+.app-main .lady-quest-marker {
+  width: 44px;
+  height: 44px;
+  font-size: 1rem;
+}
+#game .scoreboard {
+  padding: 6px 16px;
+  margin-bottom: 8px;
+}
+#game .team-score {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+#game .score-value {
+  font-size: 1.6rem;
+}
+#game .score-divider {
+  font-size: 1.3rem;
+  padding: 0;
+}
+#game .quest-row {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 5px;
+  overflow: visible;
+  margin: 0 0 8px;
+  padding: 0;
+}
+#game .quest-card {
+  min-width: 0;
+  padding: 6px 2px;
+  gap: 3px;
+}
+#game .quest-card:hover {
+  transform: none;
+  box-shadow: none;
+}
+#game .quest-card h4 {
+  font-size: 0.7rem;
+  margin: 0;
+  white-space: nowrap;
+}
+#game .quest-card small {
+  font-size: 0.75rem;
+  color: var(--color-text-secondary);
+}
+#game .quest-circle {
+  width: 44px;
+  height: 44px;
+  border-width: 2px;
+  margin: 0;
+  font-size: 0.9rem;
+}
+#game .quest-circle.current {
+  border-color: var(--color-accent-primary);
+  background: #51431d;
+}
+#game #phaseContainer {
+  padding: 6px 10px;
+  margin-bottom: 8px;
+}
+#game #phaseContainer h3 {
+  font-size: 1rem;
+}
+#game #phaseContainer p {
+  font-size: 0.85rem;
+  margin: 2px 0 0;
+}
+#game .phase-actions {
+  padding: 12px;
+}
+#game .phase-actions h2 {
+  font-size: 1.15rem;
+  padding-bottom: 6px;
+  margin-bottom: 6px;
+}
+#game .phase-actions p {
+  font-size: 1rem;
+  margin: 6px 0;
+  overflow-wrap: anywhere;
+}
+#game .player-selection-form {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 5px;
+  margin: 8px 0;
+}
+#game .player-selection-form label {
+  min-width: 0;
+}
+#game .player-option {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 44px;
+  padding: 6px;
+  font-size: 0.85rem;
+  line-height: 1.1;
+  overflow-wrap: anywhere;
+}
+#game .game-tools {
+  display: flex;
+  justify-content: center;
+  gap: 4px;
+  margin-top: 6px;
+}
+#game .roles-grid {
+  grid-template-columns: 1fr 1fr;
+  gap: 4px;
+}
+#game:has(.game-result) > .scoreboard,
+#game:has(.game-result) > .quest-row {
+  display: none;
+}
+#game .roles-grid .pagination {
+  grid-column: 1 / -1;
+}
+#game .roles-grid .card {
+  display: grid;
+  grid-template-columns: 32px minmax(0, 1fr);
+  text-align: left;
+  gap: 2px 6px;
+  padding: 6px;
+  font-size: 0.8rem;
+}
+#game .roles-grid img {
+  grid-column: 1;
+  grid-row: 1 / 4;
+  width: 32px;
+  height: 44px;
+  object-fit: cover;
+  margin: 0;
+}
+#game .roles-grid strong,
+#game .roles-grid p,
+#game .roles-grid .wins-badge {
+  grid-column: 2;
+  margin: 0;
+  overflow-wrap: anywhere;
+  font-size: 0.8rem;
+}
+.role-stats {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 4px 8px;
+  font-size: 0.9rem;
+}
+.profile-tabs {
+  margin-bottom: 10px;
+}
+.profile-tabs [aria-pressed="true"] {
+  border-color: var(--color-accent-primary);
+  background: #51431d;
+}
+.pagination {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 8px;
+  margin-top: 8px;
+}
+.room-group {
+  display: block;
+  color: var(--color-text-secondary);
+  font-size: 0.8rem;
+}
+.room-row > span {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.app-main .leaderboard-entry {
+  padding: 6px 8px;
+}
+.modal:has(.modal-content) {
+  align-items: center;
+  padding: 10px;
+}
+.modal-content.card {
+  width: 100%;
+  max-height: calc(100dvh - 20px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  margin: 0;
+  padding: 16px;
+}
+.modal-content .role-card {
+  max-width: 120px;
+  max-height: 22dvh;
+  object-fit: contain;
+  margin-top: 0;
+}
+.modal-content .role-info-group {
+  margin: 8px 0;
+}
+.role-guide {
+  margin: 10px 0;
+  text-align: left;
+}
+.role-guide summary {
+  min-height: 44px;
+  padding: 12px;
+  border: 1px solid var(--color-border);
+  cursor: pointer;
+}
+.qr-code-wrapper {
+  margin: 0 auto;
+}
+[hidden] {
+  display: none !important;
+}
+@media (max-width: 600px) {
+  .app-main .card {
+    padding: 12px;
+  }
+  .app-header + #navbar a {
+    font-size: 0.85rem;
+    padding: 6px 8px;
+  }
+}
+@media (max-height: 740px) {
+  #game .player-selection-form {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+  #game .phase-actions {
+    padding: 8px;
+  }
+  #game .game-tools {
+    margin-top: 2px;
+  }
+  .app-header h1 {
+    font-size: 1.25rem;
+  }
+  .app-header {
+    margin-bottom: 0;
+  }
+  .app-header + #navbar {
+    margin-bottom: 5px;
+  }
+  #game .quest-card {
+    padding: 3px 2px;
+  }
+  #game .quest-card small {
+    display: none;
+  }
+  #game #phaseContainer {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 2px 8px;
+    padding: 5px 8px;
+  }
+  #game #phaseContainer p {
+    margin: 0;
+    font-size: 0.75rem;
+  }
+  #game #phaseContainer h3 {
+    font-size: 0.9rem;
+  }
+  .app-main .player-list li {
+    padding: 3px 6px;
+  }
+  .app-main .player-name {
+    font-size: 0.9rem;
+  }
+}
+@media (max-height: 600px) and (max-width: 599px) {
+  .app-header {
+    display: none;
+  }
+  #game .player-selection-form {
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+  }
+  #game .player-option {
+    font-size: 0.7rem;
+    padding: 4px 2px;
+  }
+  #game .phase-actions {
+    padding: 8px;
+  }
+  .app-main .header-row h2 {
+    font-size: 1rem;
+  }
+  .app-main .player-name .wins-badge {
+    display: none;
+  }
+  .app-main .player-list li {
+    min-height: 46px;
+    padding: 1px 5px;
+  }
+  .app-main .config-option-card,
+  .app-main .config-option-card.dual {
+    height: 50px;
+  }
+  .app-main .role-toggle > span:first-child {
+    height: 48px;
+  }
+  .app-main .config-header h4 {
+    margin-bottom: 4px;
+  }
+}
+@media (max-height: 500px) and (min-width: 600px) {
+  #game:has(.game-result) .game-result {
+    grid-column: 1 / -1;
+    grid-row: auto;
+    display: grid;
+    grid-template-columns: 1fr 2fr;
+    gap: 6px 12px;
+  }
+  #game .game-result > h2,
+  #game .game-result > p,
+  #game .game-result > .btn {
+    grid-column: 1;
+  }
+  #game .game-result > .btn {
+    justify-self: center;
+    align-self: start;
+  }
+  #game .game-result > .roles-grid {
+    grid-column: 2;
+    grid-row: 1 / 5;
+  }
+  #game:has(.game-result) .game-tools {
+    grid-column: 1 / -1;
+  }
+  .app-main .profile-card {
+    display: grid;
+    grid-template-columns: 1fr 2fr;
+    gap: 8px 16px;
+  }
+  .profile-card > h2,
+  .profile-card > .profile-tabs {
+    grid-column: 1;
+  }
+  .profile-card > .profile-panel {
+    grid-column: 2;
+    grid-row: 1 / 4;
+  }
+  .auth-card .auth-form {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 8px;
+    max-width: none;
+  }
+  .auth-card .auth-form > button {
+    grid-column: 1 / -1;
+    justify-self: center;
+  }
+  .app-main .rooms-card {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    column-gap: 16px;
+  }
+  .rooms-card > h2,
+  .rooms-card > p,
+  .rooms-card > .btn {
+    grid-column: 1;
+  }
+  .rooms-card > .btn {
+    justify-self: center;
+    align-self: start;
+  }
+  .rooms-card > .room-list {
+    grid-column: 2;
+    grid-row: 1 / 6;
+  }
+  .app-header {
+    display: none;
+  }
+  .app-main .card {
+    padding: 10px;
+  }
+  .app-main .player-list li {
+    min-height: 44px;
+    padding: 1px 5px;
+  }
+  .app-main .config-option-card,
+  .app-main .config-option-card.dual {
+    height: 50px;
+  }
+  .app-main .role-toggle > span:first-child {
+    height: 48px;
+  }
+  .app-main .lady-quest-selector-container {
+    padding: 4px;
+  }
+  .app-main .lady-quest-selector-container p {
+    font-family: inherit;
+  }
+  #game {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+  }
+  #game .scoreboard,
+  #game .quest-row,
+  #game #phaseContainer {
+    grid-column: 1;
+    margin-bottom: 0;
+  }
+  #game .phase-actions,
+  #game .game-result {
+    grid-column: 2;
+    grid-row: 1 / 5;
+  }
+  #game .player-selection-form {
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+  }
+  #game .game-tools {
+    grid-column: 1;
+    margin: 0;
+  }
+  #lobby {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 6px 14px;
+  }
+  #lobby .header-row,
+  #lobby .lobby-tabs,
+  #lobby .lobby-actions {
+    grid-column: 1;
+  }
+  #lobby [role="tabpanel"] {
+    grid-column: 2;
+    grid-row: 1 / 5;
+  }
+}
