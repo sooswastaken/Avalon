@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from pathlib import Path
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
@@ -35,7 +37,8 @@ app.include_router(ws_router.router)
 # -----------------------------
 
 # Mount images at /images (caching allowed)
-app.mount("/images", StaticFiles(directory="images"), name="images")
+PROJECT_ROOT = Path(__file__).resolve().parent.parent
+app.mount("/images", StaticFiles(directory=PROJECT_ROOT / "images"), name="images")
 
 # Custom StaticFiles variant that disables caching for the SPA assets.
 class NoCacheStaticFiles(StaticFiles):
@@ -46,8 +49,13 @@ class NoCacheStaticFiles(StaticFiles):
         response.headers["Expires"] = "0"
         return response
 
-# Mount the frontend (index.html etc.) at root path.
-app.mount("/", NoCacheStaticFiles(directory="frontend", html=True), name="frontend")
+# Build with `cd frontend && npm ci && npm run build` before serving the UI.
+# check_dir=False lets API-only development start before the first frontend build.
+app.mount(
+    "/",
+    NoCacheStaticFiles(directory=PROJECT_ROOT / "frontend" / "dist", html=True, check_dir=False),
+    name="frontend",
+)
 
 # -----------------------------
 # Database (Tortoise ORM)

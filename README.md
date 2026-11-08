@@ -5,7 +5,7 @@ A fully-featured, local-hostable remake of **The Resistance: Avalon**.
 Supports any hostname, lobby sharing on frontend uses current host.
 
 * **backend/** – A FastAPI application providing REST & WebSocket APIs, built with Tortoise-ORM and SQLite for persistence.
-* **frontend/** – A zero-build vanilla-JS single-page app (served directly by the backend) implementing the game UI.
+* **frontend/** – A React application built with Vite, with reusable components and managed REST/WebSocket connections. FastAPI serves the production build.
 * **images/** – Character portraits & textures used by the SPA.
 
 ---
@@ -40,13 +40,39 @@ $ source .venv/bin/activate
 $ pip install -r backend/requirements.txt
 ```
 
-### 2. Launch the backend (+ serves the SPA)
+### 2. Build the frontend
+
+Install Node.js 22.12+ (or a newer supported LTS), then run:
+
+```bash
+cd frontend
+npm ci
+npm run build
+cd ..
+```
+
+The build creates `frontend/dist`, including the main application, wiki page, and game details. Character images continue to be served from `/images` by FastAPI.
+
+### 3. Launch the backend (+ serves the React app)
 
 ```bash
 $ uvicorn backend.app:app --reload
 ```
 
 The server starts on <http://localhost:8000/> – open it in **two or more** browser tabs to emulate multiple players.
+
+For frontend development, leave the backend running and start Vite in a second terminal:
+
+```bash
+cd frontend
+npm run dev
+```
+
+Open <http://localhost:5173/>. Vite proxies the existing REST endpoints, `/images`, and both WebSocket endpoints to <http://127.0.0.1:8000>. Set `AVALON_BACKEND_URL` before starting Vite to use another backend address. Use `npm run dev -- --host 0.0.0.0` for LAN testing; invitation links use the browser's current origin.
+
+After frontend changes, run `npm run build` to update the UI served on port 8000. Run `npm test` inside `frontend` for component and connection lifecycle tests. API-only development can start before a frontend build; build the frontend before opening the UI on port 8000.
+
+The React source lives in `frontend/src`: `App.jsx` coordinates sessions and navigation, `Lobby.jsx` manages lobby controls, `Game.jsx` renders game phases, and `Wiki.jsx` preserves wiki deep links. `hooks.js`, `socket.js`, and `api.js` manage requests and connection cleanup. No backend game rules or wire formats are changed.
 
 Tortoise-ORM auto-creates `database.db` on first run. Delete it to wipe user accounts & stats.
 
