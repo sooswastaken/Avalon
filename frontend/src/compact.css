@@ -133,9 +133,6 @@ body:has(.app-header) #root {
   border-radius: 8px;
   background: var(--color-bg-dark);
 }
-.app-main > .view-content {
-  min-height: 100%;
-}
 .app-main .card,
 .modal-content.card {
   padding: 20px;
