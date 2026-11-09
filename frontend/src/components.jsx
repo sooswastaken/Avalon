@@ -301,6 +301,9 @@ function ProfileForm({ profile, session, notify, onLogout }) {
           <RoleStats stats={data.role_stats} />
         </TabPanel>
       </div>
+      <Button tone="danger" onClick={onLogout}>
+        Log Out
+      </Button>
     </section>
   );
 }
