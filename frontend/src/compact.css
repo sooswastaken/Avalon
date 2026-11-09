@@ -89,7 +89,7 @@ body:has(.app-header) #root {
   padding: 0;
   overflow-y: auto;
   overflow-x: hidden;
-  scrollbar-gutter: stable;
+  scrollbar-gutter: auto;
   scrollbar-width: thin;
   scrollbar-color: var(--color-border) transparent;
   overscroll-behavior: contain;
@@ -743,7 +743,7 @@ body:has(.app-header) #root {
   overflow-y: auto;
   overscroll-behavior: contain;
   animation: none;
-  scrollbar-gutter: stable;
+  scrollbar-gutter: auto;
 }
 /* Dialogs receive focus on open; only their controls need a visible focus ring. */
 .modal-content.card:focus {
