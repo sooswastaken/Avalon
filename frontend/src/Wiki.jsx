@@ -27,6 +27,11 @@ export default function Wiki() {
   }, []);
   return (
     <>
+      <nav className="wiki-navigation" aria-label="Wiki navigation">
+        <a className="jump-button" href="/">
+          &larr; Back to Avalon
+        </a>
+      </nav>
       <header>
         <h1>The Resistance: Avalon Wiki</h1>
       </header>

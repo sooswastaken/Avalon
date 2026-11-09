@@ -1,12 +1,14 @@
 /* A stable viewport shell; long views scroll without moving the navigation. */
 body:has(.app-header) {
+  --shell-spacing: 10px;
   --border-radius: 8px;
   --border-radius-lg: 14px;
   height: 100dvh;
   min-height: 0;
-  padding: max(10px, env(safe-area-inset-top))
-    max(12px, env(safe-area-inset-right)) max(10px, env(safe-area-inset-bottom))
-    max(12px, env(safe-area-inset-left));
+  padding: calc(var(--shell-spacing) + env(safe-area-inset-top, 0px))
+    calc(12px + env(safe-area-inset-right, 0px))
+    calc(var(--shell-spacing) + env(safe-area-inset-bottom, 0px))
+    calc(12px + env(safe-area-inset-left, 0px));
   overflow: hidden;
   background-image:
     linear-gradient(rgba(13, 11, 8, 0.2), rgba(13, 11, 8, 0.4)),
@@ -801,7 +803,7 @@ body:has(.app-header) #root {
 }
 @media (min-width: 640px) {
   body:has(.app-header) {
-    padding-block: 24px;
+    --shell-spacing: 24px;
   }
   .app-main .auth-card,
   .app-main .profile-card,
@@ -837,8 +839,7 @@ body:has(.app-header) #root {
 /* Short screens retain the same layout, with tighter spacing and internal scroll. */
 @media (max-height: 740px) {
   body:has(.app-header) {
-    padding-block: max(8px, env(safe-area-inset-top))
-      max(8px, env(safe-area-inset-bottom));
+    --shell-spacing: 8px;
   }
   .app-header {
     margin-bottom: 6px;

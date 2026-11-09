@@ -35,7 +35,10 @@ html {
 body {
   font-family: "EB Garamond", serif;
   margin: 0;
-  padding: 1rem;
+  padding: calc(1rem + env(safe-area-inset-top, 0px))
+    calc(1rem + env(safe-area-inset-right, 0px))
+    calc(1rem + env(safe-area-inset-bottom, 0px))
+    calc(1rem + env(safe-area-inset-left, 0px));
   color: var(--color-text-primary);
   display: flex;
   flex-direction: column;
@@ -48,6 +51,23 @@ body {
   background-repeat: no-repeat;
   background-attachment: fixed;
   text-shadow: 1px 1px 4px rgba(0, 0, 0, 0.6);
+}
+
+.wiki-navigation {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  width: 100%;
+  padding-block: calc(0.75rem + env(safe-area-inset-top, 0px)) 0.75rem;
+  margin-top: calc(-1rem - env(safe-area-inset-top, 0px));
+  margin-bottom: 1rem;
+  background: var(--color-bg-dark);
+}
+
+.wiki-navigation .jump-button {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
 }
 
 header {
