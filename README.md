@@ -53,6 +53,14 @@ cd ..
 
 The build creates `frontend/dist`, including the main application, wiki page, and game details. Character images continue to be served from `/images` by FastAPI.
 
+### Install as an app (PWA)
+
+The production build includes an install manifest and service worker using the crowned-sword artwork in `frontend/public/favicon.svg` and the existing `apple-touch-icon.png`. Open the app over HTTPS (or `localhost` for local testing), then use your browser's install option. On iPhone/iPad, use Safari's Share → Add to Home Screen. Plain HTTP on a LAN IP does not support service workers; use HTTPS for phone installation.
+
+The app shell and wiki are cached after the first successful visit. Accounts, lobbies, and live games require a server connection. New versions activate after all app tabs/windows close so an update does not reload an ongoing match. PWA caching is enabled in production builds only.
+
+To regenerate the 192px, 512px, and maskable PNG icons from the SVG, run `npm run icons` inside `frontend`, then rebuild. Keep the existing Apple touch icon when updating artwork, or replace it with a matching 180×180 PNG.
+
 ### 3. Launch the backend (+ serves the React app)
 
 ```bash
