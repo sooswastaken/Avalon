@@ -1,4 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import { AnimatePresence, motion } from "framer-motion";
+import { ViewTransition } from "./motion.jsx";
 import { api } from "./api.js";
 import { useSocket } from "./hooks.js";
 import {
@@ -6,12 +8,14 @@ import {
   Button,
   Leaderboard,
   Modal,
+  ModalPresence,
   PasswordDialog,
   Profile,
   Rooms,
 } from "./components.jsx";
 import Lobby from "./Lobby.jsx";
 import Game, { QuestResult } from "./Game.jsx";
+import GameExplanation from "./GameExplanation.jsx";
 export default function App() {
   const [session, setSession] = useState(null),
     [ready, setReady] = useState(false);
@@ -256,6 +260,7 @@ export default function App() {
       <nav id="navbar">
         <a
           className="nav-brand"
+          aria-current={view === "home" ? "page" : undefined}
           href="/"
           onClick={(event) => {
             event.preventDefault();
@@ -272,6 +277,7 @@ export default function App() {
             <>
               <a
                 href="#leaderboard"
+                aria-current={view === "leaderboard" ? "page" : undefined}
                 onClick={(event) => {
                   event.preventDefault();
                   setView("leaderboard");
@@ -281,6 +287,7 @@ export default function App() {
               </a>
               <a
                 href="#profile"
+                aria-current={view === "profile" ? "page" : undefined}
                 onClick={(event) => {
                   event.preventDefault();
                   setView("profile");
@@ -293,124 +300,178 @@ export default function App() {
         </div>
       </nav>
       <main className="app-main">
-        {!ready ? (
-          <section className="card">Restoring session…</section>
-        ) : !session ? (
-          <Auth onLogin={saveSession} notify={notify} />
-        ) : (
-          <>
-            {busy ? (
-              <section className="card centered">
-                <h2>Connecting to room…</h2>
-                <div className="loader" />
-              </section>
-            ) : view === "profile" ? (
-              <Profile session={session} notify={notify} onLogout={logout} />
-            ) : view === "leaderboard" ? (
-              <Leaderboard session={session} />
-            ) : view === "room" ? (
-              <>
-                {status !== "connected" && (
-                  <div className="card" role="status">
-                    <p>
-                      {status === "paused"
-                        ? "This tab is paused. Use Reconnect to make it active."
-                        : "Connecting to room…"}
-                    </p>
-                    {status === "paused" && (
-                      <Button onClick={() => location.reload()}>
-                        Reconnect
-                      </Button>
-                    )}
-                    <Button onClick={home}>Home</Button>
-                  </div>
-                )}
-                {state ? (
-                  state.phase === "lobby" ? (
-                    <Lobby
-                      state={state}
-                      userId={session.userId}
-                      send={send}
-                      notify={notify}
-                      disabled={disabled}
-                    />
-                  ) : (
-                    <Game
-                      state={state}
-                      userId={session.userId}
-                      privateInfo={privateInfo}
-                      modalBlocked={!!dialog || pause.length > 0}
-                      send={send}
-                      disabled={disabled}
-                      onQuest={(record) => setDialog({ type: "quest", record })}
-                    />
-                  )
-                ) : (
-                  status === "connected" && <p>Loading room…</p>
-                )}
-              </>
-            ) : (
-              <Rooms
-                rooms={rooms}
-                userId={session.userId}
-                loading={roomsLoading}
-                error={roomsError}
-                onCreate={() => setDialog({ type: "create" })}
-                onJoin={(room) =>
-                  room.requires_password && !room.member
-                    ? setDialog({ type: "password", roomId: room.room_id })
-                    : enter(room.room_id)
-                }
-              />
-            )}
-          </>
+        {ready && view === "home" && !busy && (
+          <div className="home-help">
+            <Button
+              aria-haspopup="dialog"
+              onClick={() => setDialog({ type: "explanation" })}
+            >
+              How to play
+            </Button>
+          </div>
         )}
+        <ViewTransition
+          viewKey={
+            !ready
+              ? "loading"
+              : !session
+                ? "auth"
+                : busy
+                  ? "connecting"
+                  : view === "room"
+                    ? `room:${state?.phase === "lobby" ? "lobby" : state ? "game" : "loading"}`
+                    : view
+          }
+        >
+          {!ready ? (
+            <section className="card">Restoring session…</section>
+          ) : !session ? (
+            <Auth onLogin={saveSession} notify={notify} />
+          ) : (
+            <>
+              {busy ? (
+                <section className="card centered">
+                  <h2>Connecting to room…</h2>
+                  <div className="loader" />
+                </section>
+              ) : view === "profile" ? (
+                <Profile session={session} notify={notify} onLogout={logout} />
+              ) : view === "leaderboard" ? (
+                <Leaderboard session={session} />
+              ) : view === "room" ? (
+                <>
+                  {status !== "connected" && (
+                    <div className="card" role="status">
+                      <p>
+                        {status === "paused"
+                          ? "This tab is paused. Use Reconnect to make it active."
+                          : "Connecting to room…"}
+                      </p>
+                      {status === "paused" && (
+                        <Button onClick={() => location.reload()}>
+                          Reconnect
+                        </Button>
+                      )}
+                      <Button onClick={home}>Home</Button>
+                    </div>
+                  )}
+                  {state ? (
+                    state.phase === "lobby" ? (
+                      <Lobby
+                        state={state}
+                        userId={session.userId}
+                        send={send}
+                        notify={notify}
+                        disabled={disabled}
+                      />
+                    ) : (
+                      <Game
+                        state={state}
+                        userId={session.userId}
+                        privateInfo={privateInfo}
+                        modalBlocked={!!dialog || pause.length > 0}
+                        send={send}
+                        disabled={disabled}
+                        onQuest={(record) =>
+                          setDialog({ type: "quest", record })
+                        }
+                      />
+                    )
+                  ) : (
+                    status === "connected" && <p>Loading room…</p>
+                  )}
+                </>
+              ) : (
+                <Rooms
+                  rooms={rooms}
+                  userId={session.userId}
+                  loading={roomsLoading}
+                  error={roomsError}
+                  onCreate={() => setDialog({ type: "create" })}
+                  onJoin={(room) =>
+                    room.requires_password && !room.member
+                      ? setDialog({ type: "password", roomId: room.room_id })
+                      : enter(room.room_id)
+                  }
+                />
+              )}
+            </>
+          )}
+        </ViewTransition>
       </main>
       <div id="toastContainer" aria-live="polite">
-        {toasts.map((toast) => (
-          <div className="toast" key={toast.id}>
-            {toast.message}
-          </div>
-        ))}
-      </div>
-      {pause.length > 0 ? (
-        <Modal title="Game Paused">
-          <p>
-            Waiting for <strong>{pause.join(", ")}</strong> to reconnect…
-          </p>
-          {state?.host_id === session?.userId && (
-            <Button
-              tone="danger"
-              disabled={status !== "connected"}
-              onClick={() => {
-                if (confirm("Reset the game and return to lobby?"))
-                  send({ type: "reset_lobby" });
-              }}
+        <AnimatePresence initial={false}>
+          {toasts.map((toast) => (
+            <motion.div
+              className="toast"
+              key={toast.id}
+              layout
+              initial={{ opacity: 0, y: 12 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, x: 16 }}
             >
-              Return to Lobby
-            </Button>
-          )}
-          <Button onClick={home}>Home</Button>
-        </Modal>
-      ) : dialog?.type === "quest" ? (
-        <Modal
-          title={`Quest ${dialog.record.round} Result`}
-          onClose={() => setDialog(null)}
-        >
-          <QuestResult record={dialog.record} />
-        </Modal>
-      ) : (
-        (dialog?.type === "create" || dialog?.type === "password") && (
-          <PasswordDialog
-            key={`${dialog.type}:${dialog.roomId}`}
-            mode={dialog.type}
+              {toast.message}
+            </motion.div>
+          ))}
+        </AnimatePresence>
+      </div>
+      <ModalPresence>
+        {pause.length > 0 ? (
+          <Modal key="paused" title="Game Paused">
+            <p>
+              Waiting for <strong>{pause.join(", ")}</strong> to reconnect…
+            </p>
+            <p>
+              {pause.length === 1
+                ? "A player has disconnected."
+                : `${pause.length} players have disconnected.`}{" "}
+              The game will resume automatically when
+              everyone reconnects. You can stay here and wait.
+            </p>
+            {state?.host_id === session?.userId && (
+              <Button
+                tone="danger"
+                disabled={status !== "connected"}
+                onClick={() => {
+                  if (confirm("Reset the game and return to lobby?"))
+                    send({ type: "reset_lobby" });
+                }}
+              >
+                Return to Lobby
+              </Button>
+            )}
+            {state?.host_id === session?.userId && (
+              <p>Return to Lobby resets the game and clears its progress for everyone.</p>
+            )}
+            <p>
+              Home takes you to the room list and disconnects you from this game.
+              The game stays paused until all players return.
+            </p>
+            <Button onClick={home}>Home</Button>
+          </Modal>
+        ) : dialog?.type === "explanation" ? (
+          <GameExplanation key="explanation" onClose={() => setDialog(null)} />
+        ) : dialog?.type === "quest" ? (
+          <Modal
+            key={`quest-result:${dialog.record.round}`}
+            title={`Quest ${dialog.record.round} Result`}
             onClose={() => setDialog(null)}
-            onSubmit={(password) =>
-              enter(dialog.roomId, password, dialog.type === "create")
-            }
-          />
-        )
-      )}
+          >
+            <QuestResult record={dialog.record} />
+          </Modal>
+        ) : (
+          (dialog?.type === "create" || dialog?.type === "password") && (
+            <PasswordDialog
+              key={`${dialog.type}:${dialog.roomId}`}
+              mode={dialog.type}
+              onClose={() => setDialog(null)}
+              onSubmit={(password) =>
+                enter(dialog.roomId, password, dialog.type === "create")
+              }
+            />
+          )
+        )}
+      </ModalPresence>
     </>
   );
 }

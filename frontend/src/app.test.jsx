@@ -1,5 +1,12 @@
 import React from "react";
-import { act, cleanup, render, screen, waitFor } from "@testing-library/react";
+import {
+  act,
+  cleanup,
+  render,
+  screen,
+  waitFor,
+  within,
+} from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import App from "./App.jsx";
@@ -44,11 +51,13 @@ it("retains an invitation through login, requests a room password, and opens onl
   );
   const user = userEvent.setup();
   const { unmount } = render(<App />);
-  await user.type(screen.getByLabelText("Username"), "tester");
+  await user.type(await screen.findByLabelText("Username"), "tester");
   await user.type(screen.getByLabelText("Password"), "password");
   await user.click(screen.getByRole("button", { name: "Submit" }));
-  await screen.findByRole("dialog", { name: "Enter Room Password" });
-  await user.type(screen.getByLabelText("Password"), "secret");
+  const dialog = await screen.findByRole("dialog", {
+    name: "Enter Room Password",
+  });
+  await user.type(within(dialog).getByLabelText("Password"), "secret");
   await user.click(screen.getByRole("button", { name: "Join Room" }));
   await waitFor(() =>
     expect(

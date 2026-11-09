@@ -1,254 +1,483 @@
-/* Component sizing follows the available viewport; the wiki keeps its reading layout. */
+/* A stable viewport shell; long views scroll without moving the navigation. */
 body:has(.app-header) {
-  padding: max(8px, env(safe-area-inset-top))
-    max(10px, env(safe-area-inset-right)) max(8px, env(safe-area-inset-bottom))
-    max(10px, env(safe-area-inset-left));
-  min-height: 100svh;
+  --border-radius: 8px;
+  --border-radius-lg: 14px;
+  height: 100dvh;
+  min-height: 0;
+  padding: max(10px, env(safe-area-inset-top))
+    max(12px, env(safe-area-inset-right)) max(10px, env(safe-area-inset-bottom))
+    max(12px, env(safe-area-inset-left));
+  overflow: hidden;
+  background-image:
+    linear-gradient(rgba(13, 11, 8, 0.2), rgba(13, 11, 8, 0.4)),
+    url("/images/brick.png");
+  text-shadow: none;
+  font-family:
+    system-ui,
+    -apple-system,
+    "Segoe UI",
+    sans-serif;
+  font-size: 14px;
+  line-height: 1.45;
+  color-scheme: dark;
+}
+body:has(.app-header) #root {
+  height: 100%;
+  min-height: 0;
+  max-width: 800px;
+  margin-inline: auto;
+  align-items: stretch;
 }
 .app-header {
-  margin: 0 0 6px;
+  flex: none;
+  margin: 0 0 10px;
+  text-align: left;
 }
 .app-header h1 {
-  font-size: clamp(1.35rem, 4vw, 2rem);
   margin: 0;
+  font-size: clamp(1.2rem, 3vw, 1.65rem);
+  letter-spacing: 0.06em;
+  text-shadow: none;
+  color: var(--color-accent-primary);
 }
 .app-header + #navbar {
+  flex: none;
   flex-direction: row;
-  gap: 4px;
-  margin-bottom: 8px;
+  width: 100%;
+  gap: 6px;
+  margin: 0 0 12px;
+  padding: 4px;
+  border: 1px solid var(--color-border);
+  border-radius: 12px;
+  background: rgba(42, 36, 27, 0.94);
 }
 .app-header + #navbar .nav-links {
   flex-wrap: nowrap;
-  gap: 2px;
+  gap: 4px;
 }
 .app-header + #navbar a {
   display: inline-flex;
   align-items: center;
   justify-content: center;
   min-height: 44px;
-  padding: 6px 10px;
+  padding: 8px 14px;
   margin: 0;
-  font-size: 1rem;
+  font: inherit;
+  font-weight: 550;
+  background: transparent;
+  border: 1px solid transparent;
+  color: var(--color-text-secondary);
+  text-shadow: none;
+  transition:
+    background-color 0.18s,
+    color 0.18s,
+    border-color 0.18s;
+}
+.app-header + #navbar a:hover {
+  background: #4e4435;
+  color: var(--color-text-primary);
+}
+.app-header + #navbar a[aria-current="page"] {
+  color: var(--color-accent-primary);
+  background: rgba(212, 175, 55, 0.18);
+  border-color: var(--color-accent-primary);
 }
 .app-main {
+  flex: 1;
+  min-height: 0;
+  max-width: none;
   padding: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+  scrollbar-gutter: stable;
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-border) transparent;
+  overscroll-behavior: contain;
 }
-.app-main .card {
-  padding: 16px;
+.view-content {
+  min-width: 0;
+  width: 100%;
+}
+.home-help {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: 10px;
+}
+.app-main .home-help .btn {
   margin: 0;
+}
+.game-explanation {
+  text-align: left;
+  line-height: 1.6;
+}
+.game-explanation h3 {
+  margin: 20px 0 8px;
+  color: var(--color-accent-primary);
+  font-size: 1rem;
+}
+.game-explanation p {
+  margin: 10px 0;
+}
+.game-explanation ol,
+.game-explanation ul {
+  padding-left: 24px;
+  margin: 8px 0;
+}
+.game-explanation li {
+  margin-bottom: 10px;
+}
+.game-explanation-intro,
+.game-explanation-tip {
+  padding: 12px;
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  background: var(--color-bg-dark);
+}
+.app-main > .view-content {
+  min-height: 100%;
+}
+.app-main .card,
+.modal-content.card {
+  padding: 20px;
+  margin: 0;
+  background: var(--color-bg-med);
+  border: 1px solid var(--color-border);
+  border-top: 3px solid var(--color-accent-primary);
+  border-radius: 14px;
+  box-shadow:
+    0 8px 24px var(--shadow-medium),
+    inset 0 0 15px rgba(0, 0, 0, 0.3);
   animation: none;
+  transition: border-color 0.2s;
 }
 .app-main .card:hover,
 .modal-content.card:hover {
   transform: none;
+  border-color: var(--color-border);
+  border-top-color: var(--color-accent-primary);
 }
 .app-main h2,
 .modal-content h2 {
-  font-size: 1.3rem;
-  padding-bottom: 8px;
-  margin-bottom: 10px;
+  font-size: 1.25rem;
+  margin-bottom: 16px;
+  padding-bottom: 12px;
+  border-color: var(--color-border);
 }
 .app-main h3,
 .app-main h4 {
   margin-bottom: 8px;
 }
 .app-main p {
-  margin: 8px 0;
+  margin: 10px 0;
 }
 .app-main .btn,
 .modal-content .btn {
   min-height: 44px;
-  padding: 8px 12px;
+  padding: 8px 14px;
   margin: 3px;
-  font-size: 0.9rem;
+  font: inherit;
+  font-weight: 600;
+  letter-spacing: 0;
+  font-family: "Cinzel", serif;
+  text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.7);
+  box-shadow:
+    0 3px 5px var(--shadow-light),
+    inset 0 1px 1px rgba(255, 255, 255, 0.1);
+  background: linear-gradient(145deg, #4e4435, #3a3226);
+  transition:
+    background-color 0.18s,
+    border-color 0.18s,
+    color 0.18s;
 }
-.app-main input:not([type="radio"]):not([type="checkbox"]) {
+.app-main .btn:hover:not(:disabled),
+.modal-content .btn:hover:not(:disabled) {
+  transform: none;
+  box-shadow: none;
+  background: linear-gradient(145deg, #cdae4a, #b89b33);
+  color: var(--color-text-dark);
+}
+.app-main .btn.btn-success:hover:not(:disabled),
+.modal-content .btn.btn-success:hover:not(:disabled) {
+  background: linear-gradient(145deg, #4cae5a, #3a7d44);
+  color: var(--color-text-primary);
+}
+.app-main .btn.btn-danger:hover:not(:disabled),
+.modal-content .btn.btn-danger:hover:not(:disabled) {
+  background: linear-gradient(145deg, #c93434, #a02c2c);
+  color: var(--color-text-primary);
+}
+.app-main .btn.btn-success,
+.modal-content .btn.btn-success {
+  background: linear-gradient(145deg, #3a7d44, #2b5d34);
+  border-color: var(--color-accent-success);
+}
+.app-main .btn.btn-danger,
+.modal-content .btn.btn-danger {
+  background: linear-gradient(145deg, #a02c2c, #802323);
+  border-color: var(--color-accent-danger);
+}
+.app-main .btn:disabled,
+.modal-content .btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+.app-main input:not([type="radio"]):not([type="checkbox"]),
+.modal-content input {
   width: 100%;
   min-height: 44px;
-  padding: 8px 12px;
-  margin: 4px 0 10px;
+  margin: 6px 0 14px;
+  padding: 10px 12px;
   font: inherit;
   font-size: 16px;
   color: var(--color-text-primary);
   background: var(--color-bg-dark);
   border: 1px solid var(--color-border);
-  border-radius: 4px;
+  border-radius: 8px;
+  box-shadow: none;
 }
 .app-main label {
   text-align: left;
+  color: var(--color-text-secondary);
 }
 .app-main .header-row {
   flex-direction: row;
   flex-wrap: nowrap;
-  margin-bottom: 8px;
-  padding-bottom: 8px;
+  margin: 0 0 12px;
+  padding: 0;
   gap: 8px;
+  border: 0;
 }
 .app-main .header-row h2 {
   display: flex;
   align-items: center;
-  gap: 6px;
-  border: 0;
-  margin: 0;
-  padding: 0;
+  gap: 10px;
   min-width: 0;
+  border: 0;
+  padding: 0;
+  margin: 0;
 }
 .app-main #roomIdDisplay.populated {
+  max-width: 100%;
+  font:
+    500 0.85rem ui-monospace,
+    monospace;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  font-size: 1rem;
-  padding: 4px 6px;
+  padding: 6px 10px;
+  border-color: #625a3d;
+  transition: none;
 }
-.header-row > .btn {
-  flex-shrink: 0;
+#lobby {
+  overflow: visible;
+  transition: none;
 }
-.lobby-tabs {
+.lobby-tabs,
+.profile-tabs {
   display: flex;
+  justify-content: center;
   gap: 4px;
-  margin-bottom: 10px;
+  padding: 4px;
+  margin-bottom: 16px;
+  border: 1px solid var(--color-border);
+  border-radius: 10px;
+  background: var(--color-bg-dark);
 }
-.lobby-tabs [role="tab"] {
+.lobby-tabs [role="tab"],
+.profile-tabs .btn {
   flex: 1;
   min-height: 44px;
-  padding: 6px;
-  border: 1px solid var(--color-border);
-  border-radius: 4px;
-  background: var(--color-bg-dark);
-  color: var(--color-text-primary);
+  border: 1px solid transparent;
+  border-radius: 7px;
+  padding: 6px 10px;
+  background: transparent;
+  color: var(--color-text-secondary);
   font: inherit;
   cursor: pointer;
+  margin: 0;
 }
-.lobby-tabs [aria-selected="true"] {
-  background: var(--color-accent-primary);
-  color: var(--color-text-dark);
-  font-weight: 700;
+.lobby-tabs [aria-selected="true"],
+.profile-tabs .btn[aria-pressed="true"] {
+  border-color: var(--color-accent-primary);
+  background: rgba(212, 175, 55, 0.18);
+  color: var(--color-accent-primary);
 }
 .lobby-tabs .btn {
+  margin: 0;
+  background: transparent;
+}
+.tab-panels {
+  display: grid;
+  min-width: 0;
+}
+.tab-panel {
+  min-width: 0;
+  grid-area: 1 / 1;
+  align-self: start;
+}
+/* Keep hidden panels measured without allowing them to receive focus. */
+.tab-panel[hidden] {
+  display: block !important;
+  visibility: hidden;
+  pointer-events: none;
+}
+.auth-extra {
+  display: grid;
+}
+.auth-note {
+  color: var(--color-text-secondary);
+  font-size: 0.85rem;
+  padding-block: 10px;
+}
+.app-main .auth-card,
+.app-main .profile-card,
+.app-main .rooms-card {
+  min-height: min(480px, 100%);
+}
+.auth-card .profile-tabs {
+  max-width: 400px;
+  margin: 18px auto;
+}
+.auth-intro {
+  color: var(--color-text-secondary);
+}
+.auth-form > .btn {
+  width: 100%;
   margin: 0;
 }
 .app-main .player-list {
   display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 6px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
   margin: 0;
+  padding: 0;
 }
 .app-main .player-list li {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
-  gap: 2px 4px;
-  padding: 6px 8px;
-  background: var(--color-bg-dark);
+  gap: 4px 6px;
+  min-height: 60px;
+  padding: 8px 10px;
   border: 1px solid var(--color-border);
-  min-height: 52px;
+  border-radius: 8px;
+  background: var(--color-bg-dark);
 }
 .app-main .player-name {
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  line-height: 1.15;
-  font-size: 1rem;
+  font-weight: 550;
+  font-size: 0.95rem;
+  line-height: 1.3;
 }
 .app-main .player-name .wins-badge {
-  display: inline;
-  margin: 0 0 0 3px;
+  margin-left: 3px;
   font-size: 0.7rem;
 }
 .app-main .status-indicator {
   grid-column: 1;
   padding: 0;
-  background: none;
   border: 0;
-  border-radius: 0;
-  font-size: 0.8rem;
-  gap: 5px;
+  background: none;
+  font-size: 0.75rem;
+  gap: 6px;
 }
 .app-main .status-dot {
-  height: 6px;
   width: 6px;
+  height: 6px;
   box-shadow: none;
 }
 .app-main .player-list li .btn {
   grid-column: 2;
   grid-row: 1 / 3;
-  padding: 4px 6px;
-  margin: 0;
   align-self: center;
+  padding: 4px 8px;
+  margin: 0;
   font-size: 0.75rem;
 }
 .lobby-summary {
-  color: var(--color-text-secondary);
   text-align: center;
-  font-size: 0.9rem;
+  font-size: 0.8rem;
+  color: var(--color-text-secondary);
 }
 .lobby-actions {
+  margin-top: 14px;
+  padding-top: 12px;
   border-top: 1px solid var(--color-border);
-  padding-top: 6px;
-  margin-top: 8px;
 }
 .lobby-actions p {
-  font-size: 0.9rem;
+  color: var(--color-text-secondary);
+  font-size: 0.85rem;
 }
 .app-main .config-options-container {
-  border: 0;
   margin: 0;
   padding: 0;
+  border: 0;
 }
 .app-main .config-header {
-  margin-bottom: 8px;
+  margin-bottom: 10px;
   text-align: left;
 }
 .config-header p {
-  font-size: 0.85rem;
   color: var(--color-text-secondary);
+  font-size: 0.8rem;
 }
 .app-main .config-body {
   display: grid;
   grid-template-columns: 1fr;
-  gap: 6px;
+  gap: 8px;
 }
 .app-main .config-option-card,
 .app-main .config-option-card.dual {
   width: 100%;
-  height: 58px;
+  height: 60px;
   border-width: 1px;
+  border-radius: 8px;
+  box-shadow: none;
+}
+.app-main .config-option-card:hover {
+  transform: none;
 }
 .app-main .role-toggle {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 12px;
   padding-right: 44px;
   text-align: left;
 }
 .app-main .role-toggle > span:first-child {
   display: flex;
   width: 64px;
-  height: 56px;
+  height: 58px;
   flex-shrink: 0;
 }
 .app-main .role-toggle img {
   width: 100%;
+  object-fit: cover;
   object-position: center 25%;
 }
 .app-main .dual-img-wrapper img {
   width: 50%;
 }
 .app-main .role-option-name {
-  font-size: 1rem;
+  font:
+    550 0.9rem system-ui,
+    sans-serif;
 }
 .role-option-name small {
   display: block;
+  margin-top: 3px;
+  font-size: 0.75rem;
   color: var(--color-text-secondary);
-  font-size: 0.8rem;
 }
 .app-main .config-option-card .overlay-icon {
-  width: 22px;
-  height: 22px;
+  width: 20px;
+  height: 20px;
   left: 32px;
 }
 .app-main .config-option-card .info-icon {
-  top: 6px;
+  top: 7px;
   right: 0;
   width: 44px;
   height: 44px;
@@ -256,61 +485,87 @@ body:has(.app-header) {
   box-shadow: none;
 }
 .app-main .lady-quest-selector-container {
-  margin-top: 8px;
-  padding: 8px;
+  margin-top: 10px;
+  padding: 10px;
 }
 .app-main .lady-quest-selector-container p {
-  margin: 0 0 6px;
-  font-size: 0.85rem;
+  margin: 0 0 8px;
+  font: inherit;
+  font-size: 0.8rem;
 }
 .app-main .lady-quest-selector {
-  gap: 6px;
+  gap: 8px;
 }
 .app-main .lady-quest-marker {
   width: 44px;
   height: 44px;
   font-size: 1rem;
+  box-shadow: none;
+}
+.app-main .lady-quest-marker.selected {
+  background: #51431d;
+  color: var(--color-accent-primary);
+  border-color: var(--color-accent-primary);
 }
 #game .scoreboard {
-  padding: 6px 16px;
-  margin-bottom: 8px;
+  padding: 10px 16px;
+  margin-bottom: 10px;
+  box-shadow: none;
 }
 #game .team-score {
   display: flex;
   align-items: center;
   gap: 12px;
 }
+#game .team-name {
+  font-size: 0.8rem;
+}
 #game .score-value {
-  font-size: 1.6rem;
+  font-size: 1.8rem;
+  text-shadow: none;
 }
 #game .score-divider {
-  font-size: 1.3rem;
+  font-size: 1.2rem;
   padding: 0;
 }
 #game .quest-row {
   display: grid;
   grid-template-columns: repeat(5, minmax(0, 1fr));
-  gap: 5px;
+  gap: 6px;
   overflow: visible;
-  margin: 0 0 8px;
   padding: 0;
+  margin: 0 0 10px;
+}
+#game .quest-hint {
+  color: var(--color-text-secondary);
+  font-size: 0.75rem;
+  margin: 0 0 8px;
+  text-align: right;
 }
 #game .quest-card {
+  font: inherit;
+  color: var(--color-text-primary);
+  cursor: pointer;
   min-width: 0;
-  padding: 6px 2px;
-  gap: 3px;
+  padding: 8px 2px;
+  gap: 4px;
+  border-radius: 10px;
 }
 #game .quest-card:hover {
   transform: none;
   box-shadow: none;
+  border-color: var(--color-accent-primary);
+  background: #4e4435;
 }
-#game .quest-card h4 {
+#game .quest-card .quest-title {
+  font-family: "Cinzel", serif;
+  font-weight: 600;
   font-size: 0.7rem;
   margin: 0;
   white-space: nowrap;
 }
 #game .quest-card small {
-  font-size: 0.75rem;
+  font-size: 0.7rem;
   color: var(--color-text-secondary);
 }
 #game .quest-circle {
@@ -318,40 +573,55 @@ body:has(.app-header) {
   height: 44px;
   border-width: 2px;
   margin: 0;
-  font-size: 0.9rem;
+  font-size: 0.85rem;
+  text-shadow: none;
+  box-shadow: none;
 }
 #game .quest-circle.current {
   border-color: var(--color-accent-primary);
-  background: #51431d;
+  background: #51482f;
 }
 #game #phaseContainer {
-  padding: 6px 10px;
-  margin-bottom: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 4px 12px;
+  padding: 8px 12px;
+  margin-bottom: 10px;
+  box-shadow: none;
+  background: linear-gradient(
+    135deg,
+    var(--color-bg-dark),
+    var(--color-bg-med)
+  );
 }
 #game #phaseContainer h3 {
-  font-size: 1rem;
+  font-size: 0.95rem;
 }
 #game #phaseContainer p {
-  font-size: 0.85rem;
-  margin: 2px 0 0;
+  margin: 3px 0 0;
+  font-size: 0.8rem;
 }
 #game .phase-actions {
-  padding: 12px;
+  text-align: center;
+  padding: 16px;
+  min-height: calc(180px + var(--selection-rows, 2) * 50px);
 }
 #game .phase-actions h2 {
-  font-size: 1.15rem;
-  padding-bottom: 6px;
-  margin-bottom: 6px;
+  font-size: 1.1rem;
+  margin-bottom: 10px;
+  padding-bottom: 10px;
 }
 #game .phase-actions p {
-  font-size: 1rem;
-  margin: 6px 0;
+  margin: 8px 0;
+  font-size: 0.9rem;
   overflow-wrap: anywhere;
 }
 #game .player-selection-form {
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 5px;
-  margin: 8px 0;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 6px;
+  margin: 12px 0;
 }
 #game .player-selection-form label {
   min-width: 0;
@@ -362,40 +632,47 @@ body:has(.app-header) {
   justify-content: center;
   min-height: 44px;
   padding: 6px;
-  font-size: 0.85rem;
-  line-height: 1.1;
+  font:
+    550 0.85rem/1.2 system-ui,
+    sans-serif;
   overflow-wrap: anywhere;
+}
+#game .player-option:hover,
+#game input:checked + .player-option {
+  transform: none;
+  box-shadow: none;
 }
 #game .game-tools {
   display: flex;
   justify-content: center;
-  gap: 4px;
-  margin-top: 6px;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 10px;
 }
 #game .roles-grid {
-  grid-template-columns: 1fr 1fr;
-  gap: 4px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
 }
-#game:has(.game-result) > .scoreboard,
-#game:has(.game-result) > .quest-row {
-  display: none;
-}
-#game .roles-grid .pagination {
+#game .roles-grid .animated-page-items {
   grid-column: 1 / -1;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-rows: repeat(2, minmax(100px, auto));
+  gap: 8px;
 }
 #game .roles-grid .card {
   display: grid;
-  grid-template-columns: 32px minmax(0, 1fr);
+  grid-template-columns: 36px minmax(0, 1fr);
+  gap: 2px 8px;
   text-align: left;
-  gap: 2px 6px;
-  padding: 6px;
+  padding: 8px;
   font-size: 0.8rem;
 }
 #game .roles-grid img {
   grid-column: 1;
   grid-row: 1 / 4;
-  width: 32px;
-  height: 44px;
+  width: 36px;
+  height: 50px;
   object-fit: cover;
   margin: 0;
 }
@@ -404,58 +681,80 @@ body:has(.app-header) {
 #game .roles-grid .wins-badge {
   grid-column: 2;
   margin: 0;
-  overflow-wrap: anywhere;
   font-size: 0.8rem;
+  overflow-wrap: anywhere;
+}
+#game .roles-grid .pagination {
+  grid-column: 1 / -1;
 }
 .role-stats {
   display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 4px 8px;
-  font-size: 0.9rem;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 6px 12px;
+  font-size: 0.85rem;
+  text-align: left;
 }
-.profile-tabs {
-  margin-bottom: 10px;
-}
-.profile-tabs [aria-pressed="true"] {
-  border-color: var(--color-accent-primary);
-  background: #51431d;
+.role-stats p {
+  padding: 8px;
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
 }
 .pagination {
   display: flex;
-  justify-content: center;
   align-items: center;
+  justify-content: center;
   gap: 8px;
-  margin-top: 8px;
+  min-height: 50px;
+  margin-top: 12px;
+  font-variant-numeric: tabular-nums;
 }
 .room-group {
   display: block;
   color: var(--color-text-secondary);
-  font-size: 0.8rem;
+  font-size: 0.75rem;
+  margin-bottom: 3px;
+}
+.room-list {
+  margin: 16px 0;
+  text-align: left;
+}
+.room-row {
+  min-height: 68px;
+  gap: 8px;
 }
 .room-row > span {
   min-width: 0;
   overflow-wrap: anywhere;
 }
 .app-main .leaderboard-entry {
-  padding: 6px 8px;
+  min-height: 62px;
+  padding: 8px 0;
+  gap: 8px;
 }
 .modal:has(.modal-content) {
   align-items: center;
-  padding: 10px;
+  padding: max(12px, env(safe-area-inset-top)) 12px
+    max(12px, env(safe-area-inset-bottom));
+  animation: none;
 }
 .modal-content.card {
   width: 100%;
-  max-height: calc(100dvh - 20px);
+  max-height: calc(100dvh - 32px);
   overflow-y: auto;
   overscroll-behavior: contain;
-  margin: 0;
-  padding: 16px;
+  animation: none;
+  scrollbar-gutter: stable;
+}
+/* Dialogs receive focus on open; only their controls need a visible focus ring. */
+.modal-content.card:focus {
+  outline: none;
 }
 .modal-content .role-card {
+  display: block;
   max-width: 120px;
   max-height: 22dvh;
   object-fit: contain;
-  margin-top: 0;
+  margin: 0 auto 12px;
 }
 .modal-content .role-info-group {
   margin: 8px 0;
@@ -464,232 +763,132 @@ body:has(.app-header) {
   margin: 10px 0;
   text-align: left;
 }
-.role-guide summary {
+.role-guide-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
   min-height: 44px;
   padding: 12px;
   border: 1px solid var(--color-border);
+  border-radius: 8px;
+  background: var(--color-bg-dark);
+  color: inherit;
+  font: inherit;
+  text-align: left;
   cursor: pointer;
+}
+.role-reveal-content,
+.role-guide-content {
+  overflow: hidden;
+}
+.role-guide-body {
+  display: flow-root;
+  padding-inline: 4px;
 }
 .qr-code-wrapper {
   margin: 0 auto;
 }
+.toast {
+  animation: none;
+  opacity: 1;
+  font: inherit;
+  border-radius: 10px;
+}
+#toastContainer {
+  pointer-events: none;
+  max-width: min(400px, calc(100vw - 24px));
+}
 [hidden] {
   display: none !important;
 }
-@media (max-width: 600px) {
-  .app-main .card {
-    padding: 12px;
+@media (min-width: 640px) {
+  body:has(.app-header) {
+    padding-block: 24px;
   }
-  .app-header + #navbar a {
-    font-size: 0.85rem;
-    padding: 6px 8px;
+  .app-main .auth-card,
+  .app-main .profile-card,
+  .app-main .rooms-card {
+    padding: 28px;
   }
-}
-@media (max-height: 740px) {
   #game .player-selection-form {
     grid-template-columns: repeat(3, minmax(0, 1fr));
   }
-  #game .phase-actions {
-    padding: 8px;
+}
+@media (max-width: 400px) {
+  .app-header + #navbar a {
+    padding-inline: 9px;
+    font-size: 0.8rem;
   }
-  #game .game-tools {
-    margin-top: 2px;
+  .app-main .card,
+  .modal-content.card {
+    padding: 12px;
   }
-  .app-header h1 {
-    font-size: 1.25rem;
+  .lobby-tabs [role="tab"],
+  .lobby-tabs .btn {
+    font-size: 0.8rem;
+    padding-inline: 6px;
+  }
+  .app-main .player-list li {
+    padding: 6px;
+    gap: 3px;
+  }
+  .app-main .player-name {
+    font-size: 0.8rem;
+  }
+}
+/* Short screens retain the same layout, with tighter spacing and internal scroll. */
+@media (max-height: 740px) {
+  body:has(.app-header) {
+    padding-block: max(8px, env(safe-area-inset-top))
+      max(8px, env(safe-area-inset-bottom));
   }
   .app-header {
-    margin-bottom: 0;
+    margin-bottom: 6px;
   }
   .app-header + #navbar {
-    margin-bottom: 5px;
+    margin-bottom: 8px;
+  }
+  .app-main .card {
+    padding: 12px;
+  }
+  .lobby-tabs,
+  .profile-tabs {
+    margin-bottom: 10px;
   }
   #game .quest-card {
-    padding: 3px 2px;
+    padding-block: 5px;
   }
   #game .quest-card small {
     display: none;
   }
-  #game #phaseContainer {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    flex-wrap: wrap;
-    gap: 2px 8px;
-    padding: 5px 8px;
-  }
-  #game #phaseContainer p {
-    margin: 0;
-    font-size: 0.75rem;
-  }
-  #game #phaseContainer h3 {
-    font-size: 0.9rem;
-  }
-  .app-main .player-list li {
-    padding: 3px 6px;
-  }
-  .app-main .player-name {
-    font-size: 0.9rem;
-  }
-}
-@media (max-height: 600px) and (max-width: 599px) {
-  .app-header {
-    display: none;
-  }
   #game .player-selection-form {
-    grid-template-columns: repeat(5, minmax(0, 1fr));
-  }
-  #game .player-option {
-    font-size: 0.7rem;
-    padding: 4px 2px;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 5px;
+    margin-block: 8px;
   }
   #game .phase-actions {
-    padding: 8px;
-  }
-  .app-main .header-row h2 {
-    font-size: 1rem;
-  }
-  .app-main .player-name .wins-badge {
-    display: none;
-  }
-  .app-main .player-list li {
-    min-height: 46px;
-    padding: 1px 5px;
-  }
-  .app-main .config-option-card,
-  .app-main .config-option-card.dual {
-    height: 50px;
-  }
-  .app-main .role-toggle > span:first-child {
-    height: 48px;
-  }
-  .app-main .config-header h4 {
-    margin-bottom: 4px;
+    min-height: calc(170px + var(--selection-rows, 2) * 50px);
+    padding: 12px;
   }
 }
-@media (max-height: 500px) and (min-width: 600px) {
-  #game:has(.game-result) .game-result {
-    grid-column: 1 / -1;
-    grid-row: auto;
-    display: grid;
-    grid-template-columns: 1fr 2fr;
-    gap: 6px 12px;
+@media (prefers-reduced-motion: reduce) {
+  body:has(.app-header) *,
+  .modal *,
+  .toast {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
   }
-  #game .game-result > h2,
-  #game .game-result > p,
-  #game .game-result > .btn {
-    grid-column: 1;
-  }
-  #game .game-result > .btn {
-    justify-self: center;
-    align-self: start;
-  }
-  #game .game-result > .roles-grid {
-    grid-column: 2;
-    grid-row: 1 / 5;
-  }
-  #game:has(.game-result) .game-tools {
-    grid-column: 1 / -1;
-  }
-  .app-main .profile-card {
-    display: grid;
-    grid-template-columns: 1fr 2fr;
-    gap: 8px 16px;
-  }
-  .profile-card > h2,
-  .profile-card > .profile-tabs {
-    grid-column: 1;
-  }
-  .profile-card > .profile-panel {
-    grid-column: 2;
-    grid-row: 1 / 4;
-  }
-  .auth-card .auth-form {
-    display: grid;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-    gap: 8px;
-    max-width: none;
-  }
-  .auth-card .auth-form > button {
-    grid-column: 1 / -1;
-    justify-self: center;
-  }
-  .app-main .rooms-card {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    column-gap: 16px;
-  }
-  .rooms-card > h2,
-  .rooms-card > p,
-  .rooms-card > .btn {
-    grid-column: 1;
-  }
-  .rooms-card > .btn {
-    justify-self: center;
-    align-self: start;
-  }
-  .rooms-card > .room-list {
-    grid-column: 2;
-    grid-row: 1 / 6;
-  }
-  .app-header {
-    display: none;
-  }
-  .app-main .card {
-    padding: 10px;
-  }
-  .app-main .player-list li {
-    min-height: 44px;
-    padding: 1px 5px;
-  }
-  .app-main .config-option-card,
-  .app-main .config-option-card.dual {
-    height: 50px;
-  }
-  .app-main .role-toggle > span:first-child {
-    height: 48px;
-  }
-  .app-main .lady-quest-selector-container {
-    padding: 4px;
-  }
-  .app-main .lady-quest-selector-container p {
-    font-family: inherit;
-  }
-  #game {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 8px;
-  }
-  #game .scoreboard,
-  #game .quest-row,
-  #game #phaseContainer {
-    grid-column: 1;
-    margin-bottom: 0;
-  }
-  #game .phase-actions,
-  #game .game-result {
-    grid-column: 2;
-    grid-row: 1 / 5;
-  }
-  #game .player-selection-form {
-    grid-template-columns: repeat(5, minmax(0, 1fr));
-  }
-  #game .game-tools {
-    grid-column: 1;
-    margin: 0;
-  }
-  #lobby {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 6px 14px;
-  }
-  #lobby .header-row,
-  #lobby .lobby-tabs,
-  #lobby .lobby-actions {
-    grid-column: 1;
-  }
-  #lobby [role="tabpanel"] {
-    grid-column: 2;
-    grid-row: 1 / 5;
-  }
+}
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
 }
